@@ -27,11 +27,19 @@ class Sandpile1D:
         self.critical_slope: int = critical_slope
         """The critical slope of the system. No slope on the grid can be bigger than this value."""
 
-        self._slopes: list[NDArray[np.int8]] = [starting_cfg or np.zeros(self.size)]
-        """The time evolution of the system of the last simulation as a list."""
+        self.starting_cfg: NDArray[np.int8] | None = starting_cfg
+        """Specify a starting configuration for all the system simulations."""
 
+        self._slopes: list[NDArray[np.int8]] = []
+        """The time evolution of the system of the last simulation as a list."""
         self._avalanches: list[NDArray[NDArray[np.int8]]] = []
-        """The list of avalanches that occured during the last simulation"""
+        """
+        The list of avalanches that occured during the last simulation.
+        For one avalanche, each element is the configuration of the system at every 
+        check for criticality.
+        """
+
+        self._initialize(starting_cfg)
 
     # make them somehow immutable
     @property
@@ -42,26 +50,49 @@ class Sandpile1D:
     def avalanches(self):
         return tuple(self._avalanches)
 
+    def _initialize(self, starting_cfg: NDArray[np.int8] | None):
+        """Initialize the lists for the next simulation"""
+        if starting_cfg is not None:
+            self._slopes = [starting_cfg]
+        elif self.starting_cfg is not None:
+            self._slopes = [self.starting_cfg]
+        else:
+            self._slopes = [np.zeros(self.size)]
+
+        self._avalanches = []
+
     def step(self) -> None:
         """Check for criticality and add 1 grain of sand at a random position."""
         """ 
         TODO Check criticality and update the system. Save any occured avalanche in 
-        the self.__avalanches variable.
+        the self.__avalanches variable. In every step, find all critical points, update the configuration
+        and save it. repeat until no critical points are found.
         """
+        new_cfg = deepcopy(self._slopes[-1])
+        avalanche: list[NDArray[np.int8]] = []
+        while True:
+            critical_point_indices = np.where(new_cfg > self.critical_slope)[0]
+            if critical_point_indices.__len__() == 0:
+                break
+
+            avalanche.append(deepcopy(new_cfg))
+            for i in critical_point_indices:
+                self.check_criticality(new_cfg, i)
+
+        if avalanche.__len__() > 0:
+            self._avalanches.append(np.array(avalanche))
 
         index = np.random.randint(low=0, high=self.size)
-        new_cfg = deepcopy(self._slopes[-1])
 
         new_cfg[index] += 1
 
         if index != 0:
             new_cfg[index - 1] -= 1
 
-        self.check_criticality(new_cfg, index)
         self._slopes.append(new_cfg)
 
     def check_criticality(self, slope: NDArray[np.int8], index):
-        """Checks recursively for criticality."""
+        """Checks for criticality."""
         # print("before", slope, index)
         if index < 0 or index >= self.size:
             return
@@ -79,8 +110,8 @@ class Sandpile1D:
             slope[index + 1] += 1
             slope[index - 1] += 1
 
-        self.check_criticality(slope, index + 1)
-        self.check_criticality(slope, index - 1)
+        # self.check_criticality(slope, index + 1)
+        # self.check_criticality(slope, index - 1)
         # print("after", slope, index, end="\n\n")
 
     @classmethod
@@ -105,16 +136,12 @@ class Sandpile1D:
         :param time_steps: Number of time steps. In one step, criticality is checked and a grain added randomly.
         """
 
-        self._slopes = [starting_cfg or np.zeros(self.size)]
-        self._avalanches = []
+        self._initialize(starting_cfg)
 
         for _ in range(time_steps):
             self.step()
 
-# np.random.seed(2)
-# system = Sandpile1D(5, 2)
-# for i in range(100):
-#     system.step()
-#
-# for slope in system.slopes:
-#     print(slope, system.get_height_from_slope(slope))
+
+np.random.seed(2)
+system = Sandpile1D(5, 2, np.array([4, 3, 1, 4, 0]))
+system(5)
