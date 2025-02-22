@@ -22,14 +22,35 @@ class Sandpile1D:
 
     def __init__(self, size: int, critical_slope: int, starting_cfg: NDArray[np.int8] | None = None):
         self.size: int = size
+        """The number of slopes in the grid."""
+
         self.critical_slope: int = critical_slope
-        self.slopes: list[NDArray[np.int8]] = [starting_cfg or np.zeros(self.size)]
+        """The critical slope of the system. No slope on the grid can be bigger than this value."""
+
+        self._slopes: list[NDArray[np.int8]] = [starting_cfg or np.zeros(self.size)]
+        """The time evolution of the system of the last simulation as a list."""
+
+        self._avalanches: list[NDArray[NDArray[np.int8]]] = []
+        """The list of avalanches that occured during the last simulation"""
+
+    # make them somehow immutable
+    @property
+    def slopes(self):
+        return tuple(self._slopes)
+
+    @property
+    def avalanches(self):
+        return tuple(self._avalanches)
 
     def step(self) -> None:
-        """Add 1 grain of sand at a random position."""
+        """Check for criticality and add 1 grain of sand at a random position."""
+        """ 
+        TODO Check criticality and update the system. Save any occured avalanche in 
+        the self.__avalanches variable.
+        """
 
         index = np.random.randint(low=0, high=self.size)
-        new_cfg = deepcopy(self.slopes[-1])
+        new_cfg = deepcopy(self._slopes[-1])
 
         new_cfg[index] += 1
 
@@ -37,8 +58,7 @@ class Sandpile1D:
             new_cfg[index - 1] -= 1
 
         self.check_criticality(new_cfg, index)
-
-        self.slopes.append(new_cfg)
+        self._slopes.append(new_cfg)
 
     def check_criticality(self, slope: NDArray[np.int8], index):
         """Checks recursively for criticality."""
@@ -72,6 +92,24 @@ class Sandpile1D:
 
         return height
 
+    def get_average_slopes(self) -> NDArray[np.float64]:
+        """
+        Calculate the average slope of the system of the last simulation for every time step
+        """
+
+        return np.mean(self._slopes, axis=1)
+
+    def __call__(self, time_steps: int, starting_cfg: NDArray[np.int8] | None = None) -> None:
+        """
+        Do a simulation of the system for a number of time steps.
+        :param time_steps: Number of time steps. In one step, criticality is checked and a grain added randomly.
+        """
+
+        self._slopes = [starting_cfg or np.zeros(self.size)]
+        self._avalanches = []
+
+        for _ in range(time_steps):
+            self.step()
 
 # np.random.seed(2)
 # system = Sandpile1D(5, 2)
