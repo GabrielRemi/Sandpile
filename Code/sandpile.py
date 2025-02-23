@@ -1,12 +1,12 @@
 import numpy as np
 from numpy.typing import NDArray
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, InitVar
 import typing
 
 from copy import deepcopy
 
 
-__all__ = ["Avalanche", "SandpileND", "get_critical_points", "check_and_create_avalanche"]
+__all__ = ["Avalanche", "SandpileND", "get_critical_points", "check_create_avalanche"]
 
 Array: type = NDArray[np.int8]
 Index: type = typing.Sequence[int]
@@ -14,17 +14,24 @@ Index: type = typing.Sequence[int]
 
 @dataclass(repr=True)
 class Avalanche:
-    critical_slope: int
+    # critical_slope: int
+    system: "SandpileND"
+    start_cfg: InitVar[Array]
     _starting_point: Index
     """The starting position of the avalanche"""
-    _size: int = 1
+    _size: int = 0
     """Number of critical points integrated over all time steps of the avalanche."""
-    _time: int = 1
+    _time: int = 0
     """Lifetime of the avalanche."""
     _reach: float = 0
     """The distance between the starting point and the most distant critical point of the avalanche."""
 
-    _dissipation_rate: list[int] = field(repr=False, init=False, default_factory=lambda: [1])
+    _dissipation_rate: list[int] = field(repr=False, init=False, default_factory=list)
+
+    def __post_init__(self, start_cfg):
+        # Relax the system
+        while self._do_step(start_cfg):
+            continue
 
     @property
     def starting_point(self) -> Index:
@@ -46,16 +53,16 @@ class Avalanche:
     def dissipation_rate(self) -> Array:
         return np.asarray(self._dissipation_rate)
 
-    def add_step(self, cfg: Array) -> bool:
+    def _do_step(self, cfg: Array) -> bool:
         """
-        Add a system configuration to the avalanche.
+        Do a relaxation update of the system configuration and update the avalanche properties.
 
         :param cfg: current avalanche update.
         :return: True if cfg was in critical state, False if already relaxed.
         """
 
         # critical_points = np.asarray((cfg > self.critical_slope).nonzero()).swapaxes(0, 1)
-        critical_points = get_critical_points(self.critical_slope, cfg)
+        critical_points = get_critical_points(self.system.critical_slope, cfg)
         if len(critical_points) == 0:
             return False
 
@@ -66,7 +73,27 @@ class Avalanche:
 
         self._dissipation_rate.append(len(critical_points))
 
+        for critical_point in critical_points:
+            self._obound_check_criticality(cfg, critical_point)
+
         return True
+
+    def _obound_check_criticality(self, cfg: Array, position_index: Array) -> None:
+        if np.any(position_index == 0):
+            return
+
+        boundary_indices = np.asarray(position_index == (self.system.linear_grid_size - 1)).sum()
+        cfg[*position_index] += -2 * self.system.dimension - boundary_indices
+
+        for dimension, single_index in enumerate(position_index):
+            shifted_position_index = deepcopy(position_index)
+
+            shifted_position_index[dimension] -= 1
+            cfg[*shifted_position_index] += 1
+
+            if single_index < (self.system.linear_grid_size - 1):
+                shifted_position_index[dimension] += 2
+                cfg[*shifted_position_index] += 1
 
 
 def get_critical_points(critical_slope: int, cfg: Array) -> Array:
@@ -81,7 +108,7 @@ def get_critical_points(critical_slope: int, cfg: Array) -> Array:
     return np.asarray((cfg > critical_slope).nonzero()).swapaxes(0, 1)
 
 
-def check_and_create_avalanche(critical_slope: int, start_cfg: Array) -> Avalanche | None:
+def check_create_avalanche(system: "SandpileND", start_cfg: Array) -> Avalanche | None:
     """
 
     Check if the system configuration is in a critical system
@@ -89,20 +116,21 @@ def check_and_create_avalanche(critical_slope: int, start_cfg: Array) -> Avalanc
     :return: None if non-critical, return Avalanche object if otherwise.
     """
 
-    critical_points = get_critical_points(critical_slope, start_cfg)
+    critical_points = get_critical_points(system.critical_slope, start_cfg)
 
     if len(critical_points) == 0:
         return None
     elif len(critical_points) == 1:
-        return Avalanche(critical_slope, critical_points[0])
+        return Avalanche(system=system, _starting_point=critical_points[0], start_cfg=start_cfg)
     else:
-        Exception("Configuration not the beginning of an avalanche")
+        raise Exception("Configuration not the beginning of an avalanche")
 
 
 @dataclass
 class SandpileND:
     dimension: int
     linear_grid_size: int
+    critical_slope: int
     start_cfg: Array | None = None
     _shape: tuple = field(init=False, repr=False)
 
@@ -156,13 +184,18 @@ class SandpileND:
 
             cfg[*shifted_position_index] -= 1
 
-    def _cbound_crit_update(self) -> None:
+    def _crit_update(self, cfg: Array) -> None:
         """
         Check for criticality and relax the system if necessary. Save the avalanche
         in self._avalanches.
         """
 
-        pass
+        avalanche = check_create_avalanche(self.critical_slope, cfg)
+        if avalanche is None:
+            return
+
+        # self._obound_avalanche_update(cfg)
+        # while ()
 
     def __call__(self, time_steps: int, start_cfg: Array | None = None) -> None:
         self._initialize_system(time_steps, start_cfg)
@@ -175,7 +208,12 @@ class SandpileND:
 
 
 if __name__ == "__main__":
-    np.random.seed(3)
-    system = SandpileND(1, 3)
-    system(4)
-    print(system.slopes)
+    # np.random.seed(3)
+    # system = SandpileND(1, 3)
+    # system(4)
+    # print(system.slopes)
+    system = SandpileND(1, 5, 3)
+    start_cfg = np.array([1, 1, 1, 6, 1])
+    a = Avalanche(system=system, start_cfg=start_cfg, _starting_point=np.array([3]))
+    print(a)
+    print(start_cfg)
