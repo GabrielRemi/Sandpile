@@ -5,8 +5,8 @@ import typing
 
 from copy import deepcopy
 
-__all__ = ["Avalanche", "SandpileND"]
 
+__all__ = ["Avalanche", "SandpileND", "get_critical_points", "check_and_create_avalanche"]
 
 Array: type = NDArray[np.int8]
 Index: type = typing.Sequence[int]
@@ -54,7 +54,8 @@ class Avalanche:
         :return: True if cfg was in critical state, False if already relaxed.
         """
 
-        critical_points = np.asarray((cfg > self.critical_slope).nonzero()).swapaxes(0, 1)
+        # critical_points = np.asarray((cfg > self.critical_slope).nonzero()).swapaxes(0, 1)
+        critical_points = get_critical_points(self.critical_slope, cfg)
         if len(critical_points) == 0:
             return False
 
@@ -66,6 +67,36 @@ class Avalanche:
         self._dissipation_rate.append(len(critical_points))
 
         return True
+
+
+def get_critical_points(critical_slope: int, cfg: Array) -> Array:
+    """
+    Find all critical points in the system.
+
+    :param critical_slope: Critical slope of the system.
+    :param cfg: current system configuration.
+    :return: Array of indices of critical points.
+    """
+
+    return np.asarray((cfg > critical_slope).nonzero()).swapaxes(0, 1)
+
+
+def check_and_create_avalanche(critical_slope: int, start_cfg: Array) -> Avalanche | None:
+    """
+
+    Check if the system configuration is in a critical system
+
+    :return: None if non-critical, return Avalanche object if otherwise.
+    """
+
+    critical_points = get_critical_points(critical_slope, start_cfg)
+
+    if len(critical_points) == 0:
+        return None
+    elif len(critical_points) == 1:
+        return Avalanche(critical_slope, critical_points[0])
+    else:
+        Exception("Configuration not the beginning of an avalanche")
 
 
 @dataclass
