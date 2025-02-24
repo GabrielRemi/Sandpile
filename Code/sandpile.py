@@ -37,7 +37,6 @@ class Avalanche:
             if self._time == self.termination_time:
                 raise Exception(f"Avalanche was found in a loop after {self.termination_time} relaxations")
 
-
     @property
     def starting_point(self) -> Index:
         return deepcopy(self._starting_point)
@@ -149,16 +148,9 @@ class SandpileND:
     start_cfg: Array | None = None
     _shape: tuple = field(init=False, repr=False)
 
-    _slopes: NDArray[Array] = field(init=False, repr=False)
+    _curr_slope: Array = field(init=False, repr=False)
+    average_slopes: Array = field(init=False, repr=False)
     _avalanches: list[Avalanche] = field(init=False, repr=False)
-
-    @property
-    def slopes(self):
-        return self._slopes
-
-    @property
-    def average_slopes(self) -> NDArray[np.float64]:
-        return self.slopes.mean(axis=tuple(range(1, self.dimension + 1)))
 
     @property
     def avalanches(self):
@@ -181,8 +173,9 @@ class SandpileND:
         if start_cfg.shape != self._shape:
             raise Exception("Shape mismatch")
 
-        self._slopes = np.zeros(shape=(time_steps, *self._shape))
-        self._slopes[0] = start_cfg
+        self._curr_slope = deepcopy(start_cfg)
+        self.average_slopes = np.zeros(time_steps)
+        self.average_slopes[0] = self._curr_slope.mean()
         self._avalanches = []
 
     def _conservative_perturbation(self, cfg: Array, position_index: typing.Sequence[int]):
@@ -199,34 +192,25 @@ class SandpileND:
 
             cfg[*shifted_position_index] -= 1
 
-    def _crit_update(self, cfg: Array) -> None:
-        """
-        Check for criticality and relax the system if necessary. Save the avalanche
-        in self._avalanches.
-        """
-
-        avalanche = check_create_avalanche(self, cfg)
-        if avalanche is None:
-            return
-
-        # self._obound_avalanche_update(cfg)
-        # while ()
-
     def __call__(self, time_steps: int, start_cfg: Array | None = None) -> None:
         self._initialize_system(time_steps, start_cfg)
 
         random_positions = np.random.randint(low=0, high=self.linear_grid_size, size=(time_steps - 1, self.dimension))
 
         for i, position_index in zip(range(1, time_steps), random_positions):
-            self._slopes[i] = deepcopy(self._slopes[i - 1])
+            # self._slopes[i] = deepcopy(self._slopes[i - 1])
 
-            avalanche = check_create_avalanche(self, self._slopes[i])
+            avalanche = check_create_avalanche(self, self._curr_slope)
             if avalanche is not None:
                 self._avalanches.append(avalanche)
-            self._conservative_perturbation(self._slopes[i], position_index)
+            self._conservative_perturbation(self._curr_slope, position_index)
+
+            self.average_slopes[i] = self._curr_slope.mean()
+
 
 
 if __name__ == "__main__":
+    pass
     # np.random.seed(3)
     # system = SandpileND(1, 3)
     # system(4)
@@ -236,5 +220,3 @@ if __name__ == "__main__":
     # a = Avalanche(system=system, start_cfg=start_cfg, _starting_point=np.array([3]))
     # print(a)
     # print(start_cfg)
-
-    unittest.main()
