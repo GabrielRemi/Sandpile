@@ -19,6 +19,8 @@ class Avalanche:
     start_cfg: InitVar[Array]
     _starting_point: Index
     """The starting position of the avalanche"""
+    termination_time: int = 500
+    """Avalanche time, after which the avalanche is brought to a halt"""
     _size: int = 0
     """Number of critical points integrated over all time steps of the avalanche."""
     _time: int = 0
@@ -31,7 +33,10 @@ class Avalanche:
     def __post_init__(self, start_cfg):
         # Relax the system
         while self._do_step(start_cfg):
-            continue
+            # print(start_cfg)
+            if self._time == self.termination_time:
+                raise Exception(f"Avalanche was found in a loop after {self.termination_time} relaxations")
+
 
     @property
     def starting_point(self) -> Index:
@@ -79,11 +84,17 @@ class Avalanche:
         return True
 
     def _obound_check_criticality(self, cfg: Array, position_index: Array) -> None:
+        """
+        Relax the system by using open boundary conditions. The 'left' borders are always closed.
+
+        :param cfg: configuration to relax.
+        :param position_index: position of the relaxation process.
+        """
         if np.any(position_index == 0):
-            return
+            cfg[*position_index] = 0
 
         boundary_indices = np.asarray(position_index == (self.system.linear_grid_size - 1)).sum()
-        cfg[*position_index] += -2 * self.system.dimension - boundary_indices
+        cfg[*position_index] += -2 * self.system.dimension + boundary_indices
 
         for dimension, single_index in enumerate(position_index):
             shifted_position_index = deepcopy(position_index)
@@ -94,6 +105,10 @@ class Avalanche:
             if single_index < (self.system.linear_grid_size - 1):
                 shifted_position_index[dimension] += 2
                 cfg[*shifted_position_index] += 1
+
+    def _cbound_check_criticality(self, cfg: Array, position_index: Array) -> None:
+        if np.any(position_index == 0) or np.any(position_index == (self.system.linear_grid_size - 1)):
+            return
 
 
 def get_critical_points(critical_slope: int, cfg: Array) -> Array:
@@ -135,7 +150,7 @@ class SandpileND:
     _shape: tuple = field(init=False, repr=False)
 
     _slopes: NDArray[Array] = field(init=False, repr=False)
-    _avalanches: list[tuple[int, int, int]] = field(init=False, repr=False)
+    _avalanches: list[Avalanche] = field(init=False, repr=False)
 
     @property
     def slopes(self):
@@ -143,7 +158,7 @@ class SandpileND:
 
     @property
     def average_slopes(self) -> NDArray[np.float64]:
-        return self.slopes.mean(axis=1)
+        return self.slopes.mean(axis=tuple(range(1, self.dimension + 1)))
 
     @property
     def avalanches(self):
@@ -190,7 +205,7 @@ class SandpileND:
         in self._avalanches.
         """
 
-        avalanche = check_create_avalanche(self.critical_slope, cfg)
+        avalanche = check_create_avalanche(self, cfg)
         if avalanche is None:
             return
 
@@ -204,6 +219,10 @@ class SandpileND:
 
         for i, position_index in zip(range(1, time_steps), random_positions):
             self._slopes[i] = deepcopy(self._slopes[i - 1])
+
+            avalanche = check_create_avalanche(self, self._slopes[i])
+            if avalanche is not None:
+                self._avalanches.append(avalanche)
             self._conservative_perturbation(self._slopes[i], position_index)
 
 
@@ -212,8 +231,10 @@ if __name__ == "__main__":
     # system = SandpileND(1, 3)
     # system(4)
     # print(system.slopes)
-    system = SandpileND(1, 5, 3)
-    start_cfg = np.array([1, 1, 1, 6, 1])
-    a = Avalanche(system=system, start_cfg=start_cfg, _starting_point=np.array([3]))
-    print(a)
-    print(start_cfg)
+    # system = SandpileND(1, 5, 3)
+    # start_cfg = np.array([1, 1, 1, 6, 1])
+    # a = Avalanche(system=system, start_cfg=start_cfg, _starting_point=np.array([3]))
+    # print(a)
+    # print(start_cfg)
+
+    unittest.main()
