@@ -1,9 +1,13 @@
+import ast
+import re
+import typing
+from copy import deepcopy
+from dataclasses import dataclass, field, InitVar
+
+from tqdm import tqdm
+
 import numpy as np
 from numpy.typing import NDArray
-from dataclasses import dataclass, field, InitVar
-import typing
-
-from copy import deepcopy
 
 
 __all__ = ["Avalanche", "SandpileND", "get_critical_points", "check_create_avalanche"]
@@ -16,9 +20,10 @@ Index: type = typing.Sequence[int]
 class Avalanche:
     # critical_slope: int
     system: "SandpileND"
-    start_cfg: InitVar[Array]
     _starting_point: Index
     """The starting position of the avalanche"""
+    start_cfg: InitVar[Array | None] = None
+    """Starting configuration of the system to relax. If not given, do nothing."""
     termination_time: int = 500
     """Avalanche time, after which the avalanche is brought to a halt"""
     _size: int = 0
@@ -31,6 +36,9 @@ class Avalanche:
     _dissipation_rate: list[int] = field(repr=False, init=False, default_factory=list)
 
     def __post_init__(self, start_cfg):
+        if start_cfg is None:
+            return
+
         # Relax the system
         while self._do_step(start_cfg):
             # print(start_cfg)
@@ -106,8 +114,20 @@ class Avalanche:
                 cfg[*shifted_position_index] += 1
 
     def _cbound_check_criticality(self, cfg: Array, position_index: Array) -> None:
+        raise NotImplementedError()
         if np.any(position_index == 0) or np.any(position_index == (self.system.linear_grid_size - 1)):
             return
+
+    def to_str(self) -> str:
+        """Turn Avalanche data into a string"""
+
+        s = ""
+        s += f"{list(self._starting_point)}\n{self._size}\n{self._time}\n{self._reach}"
+
+        for r in self.dissipation_rate:
+            s += f"\n{r}"
+
+        return s
 
 
 def get_critical_points(critical_slope: int, cfg: Array) -> Array:
@@ -197,7 +217,7 @@ class SandpileND:
 
         random_positions = np.random.randint(low=0, high=self.linear_grid_size, size=(time_steps - 1, self.dimension))
 
-        for i, position_index in zip(range(1, time_steps), random_positions):
+        for i, position_index, _ in zip(range(1, time_steps), random_positions, tqdm(range(1, time_steps))):
             # self._slopes[i] = deepcopy(self._slopes[i - 1])
 
             avalanche = check_create_avalanche(self, self._curr_slope)
@@ -207,6 +227,62 @@ class SandpileND:
 
             self.average_slopes[i] = self._curr_slope.mean()
 
+    def save_data(self, path: str) -> None:
+        """Save the data into a file"""
+
+        # System specifications
+        s = f"dimension: {self.dimension}, linear_grid_size: {self.linear_grid_size}, "
+        s += f"critical_slope: {self.critical_slope}\n{list(self.average_slopes)}\n"
+
+        for a in self.avalanches:
+            s += a.to_str()
+            s += "\n---\n"
+
+        with open(path, "w") as file:
+            file.write(s)
+
+    @classmethod
+    def load_from_file(cls, path: str) -> "SandpileND":
+        file = open(path, "r")
+
+        lines = file.readlines()
+
+        parameters = [int(x) for x in re.findall(r"\d+", lines[0])]
+        system = SandpileND(dimension=parameters[0], linear_grid_size=parameters[1], critical_slope=parameters[2])
+        system.average_slopes = np.array(ast.literal_eval(lines[1]))
+
+        aval_data = []
+        curr_data = []
+
+        for line in lines[2:]:
+            if line == "---\n":
+                aval_data.append(curr_data)
+                curr_data = []
+                continue
+
+            curr_data.append(line.strip())
+
+        avalanches: list[Avalanche] = []
+
+        for d in aval_data:
+            # starting_point = np.fromstring(d[0].strip("[]"), sep=" ", dtype=np.uint8)
+            starting_point = np.array(ast.literal_eval(d[0]))
+            size = int(d[1])
+            time = int(d[2])
+            reach = float(d[3])
+
+            dissipation_rate = [float(x) for x in d[4:]]
+
+            a = Avalanche(system=system, _starting_point=starting_point)
+            a._size = size
+            a._time = time
+            a._reach = reach
+
+            a._dissipation_rate = dissipation_rate
+            avalanches.append(a)
+
+        system._avalanches = avalanches
+        return system
 
 
 if __name__ == "__main__":
