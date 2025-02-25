@@ -4,8 +4,6 @@ import typing
 from copy import deepcopy
 from dataclasses import dataclass, field, InitVar
 
-from inkex.deprecated import description
-
 from utils import *
 
 
@@ -300,16 +298,3 @@ class SandpileND:
 
         file.close()
         return system
-
-
-if __name__ == "__main__":
-    pass
-    # np.random.seed(3)
-    # system = SandpileND(1, 3)
-    # system(4)
-    # print(system.slopes)
-    # system = SandpileND(1, 5, 3)
-    # start_cfg = np.array([1, 1, 1, 6, 1])
-    # a = Avalanche(system=system, start_cfg=start_cfg, _starting_point=np.array([3]))
-    # print(a)
-    # print(start_cfg)
