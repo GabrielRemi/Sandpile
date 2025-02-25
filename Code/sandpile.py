@@ -4,7 +4,15 @@ import typing
 from copy import deepcopy
 from dataclasses import dataclass, field, InitVar
 
-from tqdm import tqdm
+from inkex.deprecated import description
+
+from utils import *
+
+
+if is_notebook():
+    from tqdm.notebook import tqdm
+else:
+    from tqdm import tqdm
 
 import numpy as np
 from numpy.typing import NDArray
@@ -217,7 +225,14 @@ class SandpileND:
 
         random_positions = np.random.randint(low=0, high=self.linear_grid_size, size=(time_steps - 1, self.dimension))
 
-        for i, position_index, _ in zip(range(1, time_steps), random_positions, tqdm(range(1, time_steps))):
+        desc = f"dim {self.dimension} grid {self.linear_grid_size}"
+        miniters = int(np.ceil(time_steps / 500))
+
+        print("\r ", end="")
+        for i, position_index, _ in zip(
+                range(1, time_steps),
+                random_positions,
+                tqdm(range(1, time_steps), desc=desc, miniters=miniters, leave=True)):
             # self._slopes[i] = deepcopy(self._slopes[i - 1])
 
             avalanche = check_create_avalanche(self, self._curr_slope)
@@ -271,7 +286,7 @@ class SandpileND:
             time = int(d[2])
             reach = float(d[3])
 
-            dissipation_rate = [float(x) for x in d[4:]]
+            dissipation_rate = [int(x) for x in d[4:]]
 
             a = Avalanche(system=system, _starting_point=starting_point)
             a._size = size
@@ -282,6 +297,8 @@ class SandpileND:
             avalanches.append(a)
 
         system._avalanches = avalanches
+
+        file.close()
         return system
 
 
