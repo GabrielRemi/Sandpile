@@ -5,7 +5,7 @@ import psutil  # type: ignore
 from IPython import get_ipython
 
 
-__all__ = ["get_memory", "is_notebook", "do","func"]
+__all__ = ["get_memory", "is_notebook", "func"]
 
 
 def get_memory() -> float:
@@ -13,14 +13,6 @@ def get_memory() -> float:
     process = psutil.Process(os.getpid())
     memory_usage = process.memory_info().rss  # in bytes
     return memory_usage / (1024 ** 2)
-
-
-# def is_notebook() -> bool:
-#     """Return True if code is executed in a notebook environment"""
-#     try:
-#         return '__IPYTHON__' in globals()
-#     except NameError:
-#         return False
 
 
 def is_notebook() -> bool:
@@ -35,20 +27,16 @@ def is_notebook() -> bool:
         return False  # If 'IPython' is not available, we're not in a notebook
 
 
-from multiprocessing import Process, Pool
 import time
+
 
 if is_notebook():
     from tqdm.notebook import tqdm
 else:
     from tqdm import tqdm
 
+
 def func(x):
     print(" ", end="")
     for _ in tqdm(range(100), desc=str(x), leave=True):
         time.sleep(0.03)
-
-
-def do():
-    with Pool(5) as p:
-        p.map(func, range(3))
