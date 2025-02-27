@@ -128,7 +128,7 @@ class Avalanche:
         """Turn Avalanche data into a string"""
 
         s = ""
-        s += f"{list(self._starting_point)}\n{self._size}\n{self._time}\n{self._reach}"
+        s += f"{self._starting_point.tolist()}\n{self._size}\n{self._time}\n{self._reach}"
 
         for r in self.dissipation_rate:
             s += f"\n{r}"
@@ -245,7 +245,7 @@ class SandpileND:
 
         # System specifications
         s = f"dimension: {self.dimension}, linear_grid_size: {self.linear_grid_size}, "
-        s += f"critical_slope: {self.critical_slope}\n{list(self.average_slopes)}\n"
+        s += f"critical_slope: {self.critical_slope}\n{self.average_slopes.tolist()}\n"
 
         for a in self.avalanches:
             s += a.to_str()
