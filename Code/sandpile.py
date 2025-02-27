@@ -3,6 +3,7 @@ import re
 import typing
 from copy import deepcopy
 from dataclasses import dataclass, field, InitVar
+from multiprocessing.managers import Value
 
 from utils import *
 
@@ -92,7 +93,12 @@ class Avalanche:
         self._dissipation_rate.append(len(critical_points))
 
         for critical_point in critical_points:
-            self._obound_check_criticality(cfg, critical_point)
+            if self.system.boundary_condition == "open":
+                self._obound_check_criticality(cfg, critical_point)
+            elif self.system.boundary_condition == "closed":
+                self._cbound_check_criticality(cfg, critical_point)
+            else:
+                raise ValueError("unknown boundary condition type")
 
         return True
 
@@ -105,6 +111,7 @@ class Avalanche:
         """
         if np.any(position_index == 0):
             cfg[*position_index] = 0
+            return
 
         boundary_indices = np.asarray(position_index == (self.system.linear_grid_size - 1)).sum()
         cfg[*position_index] += -2 * self.system.dimension + boundary_indices
@@ -120,9 +127,28 @@ class Avalanche:
                 cfg[*shifted_position_index] += 1
 
     def _cbound_check_criticality(self, cfg: Array, position_index: Array) -> None:
-        raise NotImplementedError()
+        """
+        Relax the system by using open boundary conditions. The 'left' borders are always closed.
+
+        :param cfg: configuration to relax.
+        :param position_index: position of the relaxation process.
+        """
+        # print(position_index)
         if np.any(position_index == 0) or np.any(position_index == (self.system.linear_grid_size - 1)):
+            # print("border!")
+            cfg[*position_index] = 0
             return
+
+        cfg[*position_index] -= 2 * self.system.dimension
+
+        for dimension, single_index in enumerate(position_index):
+            shifted_position_index = deepcopy(position_index)
+
+            shifted_position_index[dimension] -= 1
+            cfg[*shifted_position_index] += 1
+
+            shifted_position_index[dimension] += 2
+            cfg[*shifted_position_index] += 1
 
     def to_str(self) -> str:
         """Turn Avalanche data into a string"""
@@ -171,6 +197,7 @@ class SandpileND:
     dimension: int
     linear_grid_size: int
     critical_slope: int
+    boundary_condition: typing.Literal["open", "closed"] = "open"
     start_cfg: Array | None = None
     _shape: tuple = field(init=False, repr=False)
 
@@ -223,7 +250,7 @@ class SandpileND:
 
         random_positions = np.random.randint(low=0, high=self.linear_grid_size, size=(time_steps - 1, self.dimension))
 
-        desc = f"dim {self.dimension} grid {self.linear_grid_size}"
+        desc = f"dim{self.dimension} grid{self.linear_grid_size} {self.boundary_condition}"
         miniters = int(np.ceil(time_steps / 500))
 
         print("\r ", end="")
