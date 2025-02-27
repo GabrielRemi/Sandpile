@@ -3,7 +3,6 @@ import re
 import typing
 from copy import deepcopy
 from dataclasses import dataclass, field, InitVar
-from multiprocessing.managers import Value
 
 from utils import *
 
@@ -202,6 +201,8 @@ class SandpileND:
     _shape: tuple = field(init=False, repr=False)
 
     _curr_slope: Array = field(init=False, repr=False)
+    # average_slopes: Array = field(init=False, repr=False)
+    _average_slopes_list: list[float] = field(init=False, repr=False)
     average_slopes: Array = field(init=False, repr=False)
     _avalanches: list[Avalanche] = field(init=False, repr=False)
 
@@ -213,11 +214,14 @@ class SandpileND:
     def shape(self):
         return self._shape
 
+    def get_average_slopes(self) -> Array:
+        return np.asarray(self._average_slopes_list)
+
     def __post_init__(self):
         self._shape = tuple([self.linear_grid_size] * self.dimension)
         # self._initialize_system(self.start_cfg)
 
-    def _initialize_system(self, time_steps: int, start_cfg: Array | None = None) -> None:
+    def _initialize_system(self, start_cfg: Array | None = None) -> None:
         """Initialize the system for the simulation"""
 
         if start_cfg is None:
@@ -227,8 +231,7 @@ class SandpileND:
             raise Exception("Shape mismatch")
 
         self._curr_slope = deepcopy(start_cfg)
-        self.average_slopes = np.zeros(time_steps)
-        self.average_slopes[0] = self._curr_slope.mean()
+        self._average_slopes_list = [self._curr_slope.mean()]
         self._avalanches = []
 
     def _conservative_perturbation(self, cfg: Array, position_index: typing.Sequence[int]):
@@ -245,27 +248,32 @@ class SandpileND:
 
             cfg[*shifted_position_index] -= 1
 
+    def step(self):
+        random_position = np.random.randint(low=0, high=self.linear_grid_size, size=self.dimension)
+
+        avalanche = check_create_avalanche(self, self._curr_slope)
+        if avalanche is not None:
+            self._avalanches.append(avalanche)
+        self._conservative_perturbation(self._curr_slope, random_position)
+
+        self._average_slopes_list.append(self._curr_slope.mean())
+
+
     def __call__(self, time_steps: int, start_cfg: Array | None = None) -> None:
-        self._initialize_system(time_steps, start_cfg)
+        self._initialize_system(start_cfg)
 
         random_positions = np.random.randint(low=0, high=self.linear_grid_size, size=(time_steps - 1, self.dimension))
 
         desc = f"dim{self.dimension} grid{self.linear_grid_size} {self.boundary_condition}"
         miniters = int(np.ceil(time_steps / 500))
 
-        print("\r ", end="")
-        for i, position_index, _ in zip(
-                range(1, time_steps),
+        print("\r", end="", flush=True)
+        for position_index, _ in zip(
                 random_positions,
                 tqdm(range(1, time_steps), desc=desc, miniters=miniters, leave=True)):
-            # self._slopes[i] = deepcopy(self._slopes[i - 1])
+            self.step()
 
-            avalanche = check_create_avalanche(self, self._curr_slope)
-            if avalanche is not None:
-                self._avalanches.append(avalanche)
-            self._conservative_perturbation(self._curr_slope, position_index)
-
-            self.average_slopes[i] = self._curr_slope.mean()
+        self.average_slopes = np.asarray(self._average_slopes_list)
 
     def save_data(self, path: str) -> None:
         """Save the data into a file"""
@@ -290,6 +298,7 @@ class SandpileND:
         parameters = [int(x) for x in re.findall(r"\d+", lines[0])]
         system = SandpileND(dimension=parameters[0], linear_grid_size=parameters[1], critical_slope=parameters[2])
         system.average_slopes = np.array(ast.literal_eval(lines[1]))
+        system._average_slopes_list = system.average_slopes.tolist()
 
         aval_data = []
         curr_data = []
