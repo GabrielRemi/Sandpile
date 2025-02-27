@@ -80,6 +80,7 @@ class Avalanche:
         """
 
         # critical_points = np.asarray((cfg > self.critical_slope).nonzero()).swapaxes(0, 1)
+        # critical_points = get_critical_points(self.system.critical_slope, cfg)
         critical_points = get_critical_points(self.system.critical_slope, cfg)
         if len(critical_points) == 0:
             return False
@@ -91,7 +92,7 @@ class Avalanche:
 
         self._dissipation_rate.append(len(critical_points))
 
-        for critical_point in critical_points:
+        for critical_point in np.random.permutation(critical_points):
             if self.system.boundary_condition == "open":
                 self._obound_check_criticality(cfg, critical_point)
             elif self.system.boundary_condition == "closed":
@@ -119,6 +120,7 @@ class Avalanche:
             shifted_position_index = deepcopy(position_index)
 
             shifted_position_index[dimension] -= 1
+
             cfg[*shifted_position_index] += 1
 
             if single_index < (self.system.linear_grid_size - 1):
@@ -219,7 +221,7 @@ class SandpileND:
 
     def __post_init__(self):
         self._shape = tuple([self.linear_grid_size] * self.dimension)
-        # self._initialize_system(self.start_cfg)
+        self._initialize_system(self.start_cfg)
 
     def _initialize_system(self, start_cfg: Array | None = None) -> None:
         """Initialize the system for the simulation"""
@@ -248,13 +250,14 @@ class SandpileND:
 
             cfg[*shifted_position_index] -= 1
 
-    def step(self):
-        random_position = np.random.randint(low=0, high=self.linear_grid_size, size=self.dimension)
+    def step(self, perturb_position: Array | None = None):
+        if perturb_position is None:
+            perturb_position = np.random.randint(low=0, high=self.linear_grid_size, size=self.dimension)
 
         avalanche = check_create_avalanche(self, self._curr_slope)
         if avalanche is not None:
             self._avalanches.append(avalanche)
-        self._conservative_perturbation(self._curr_slope, random_position)
+        self._conservative_perturbation(self._curr_slope, perturb_position)
 
         self._average_slopes_list.append(self._curr_slope.mean())
 
