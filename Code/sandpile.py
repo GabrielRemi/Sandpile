@@ -14,6 +14,7 @@ else:
 
 import numpy as np
 from numpy.typing import NDArray
+import pandas as pd
 
 
 __all__ = ["Avalanche", "SandpileND", "get_critical_points", "check_create_avalanche"]
@@ -27,7 +28,9 @@ class Avalanche:
     # critical_slope: int
     system: "SandpileND"
     _starting_point: Index
-    """The starting position of the avalanche"""
+    """The starting position of the avalanche."""
+    time_step: int
+    """Time step at which the avalanche occured."""
     start_cfg: InitVar[Array | None] = None
     """Starting configuration of the system to relax. If not given, do nothing."""
     termination_time: int = 500
@@ -156,6 +159,7 @@ class Avalanche:
 
         s = ""
         s += f"{self._starting_point.tolist()}\n{self._size}\n{self._time}\n{self._reach}"
+        s += f"\n{self.time_step}"
 
         for r in self.dissipation_rate:
             s += f"\n{r}"
@@ -188,7 +192,8 @@ def check_create_avalanche(system: "SandpileND", start_cfg: Array) -> Avalanche 
     if len(critical_points) == 0:
         return None
     elif len(critical_points) == 1:
-        return Avalanche(system=system, _starting_point=critical_points[0], start_cfg=start_cfg)
+        return Avalanche(system=system, _starting_point=critical_points[0], start_cfg=start_cfg,
+                         time_step=len(system._average_slopes_list))
     else:
         raise Exception("Configuration not the beginning of an avalanche")
 
@@ -209,7 +214,7 @@ class SandpileND:
     _avalanches: list[Avalanche] = field(init=False, repr=False)
 
     @property
-    def avalanches(self):
+    def avalanches(self) -> NDArray[Avalanche]:
         return np.array(self._avalanches)
 
     @property
@@ -222,6 +227,25 @@ class SandpileND:
     def __post_init__(self):
         self._shape = tuple([self.linear_grid_size] * self.dimension)
         self._initialize_system(self.start_cfg)
+
+    def get_avalanche_data(self) -> pd.DataFrame:
+        sizes: Array = np.zeros(len(self.avalanches))
+        times: Array = np.zeros(len(self.avalanches))
+        reach: Array = np.zeros(len(self.avalanches))
+        time_step: NDArray[np.uint64] = np.zeros(len(self.avalanches))
+
+        for i, a in enumerate(self.avalanches):
+            sizes[i] = a.size
+            times[i] = a.time
+            reach[i] = a.reach
+            time_step[i] = a.time_step
+
+        return pd.DataFrame({
+            "time_step": time_step,
+            "size" : sizes,
+            "time" : times,
+            "reach": reach,
+        })
 
     def _initialize_system(self, start_cfg: Array | None = None) -> None:
         """Initialize the system for the simulation"""
@@ -260,7 +284,6 @@ class SandpileND:
         self._conservative_perturbation(self._curr_slope, perturb_position)
 
         self._average_slopes_list.append(self._curr_slope.mean())
-
 
     def __call__(self, time_steps: int, start_cfg: Array | None = None) -> None:
         self._initialize_system(start_cfg)
@@ -322,10 +345,11 @@ class SandpileND:
             size = int(d[1])
             time = int(d[2])
             reach = float(d[3])
+            time_step = int(d[4])
 
-            dissipation_rate = [int(x) for x in d[4:]]
+            dissipation_rate = [int(x) for x in d[5:]]
 
-            a = Avalanche(system=system, _starting_point=starting_point)
+            a = Avalanche(system=system, _starting_point=starting_point, time_step=time_step)
             a._size = size
             a._time = time
             a._reach = reach

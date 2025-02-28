@@ -1,11 +1,14 @@
 import os
 import sys
+import typing
 
+import numpy as np
 import psutil  # type: ignore
 from IPython import get_ipython
+from numpy.typing import NDArray
 
 
-__all__ = ["get_memory", "is_notebook", "func"]
+__all__ = ["get_memory", "is_notebook", "get_hist"]
 
 
 def get_memory() -> float:
@@ -27,16 +30,18 @@ def is_notebook() -> bool:
         return False  # If 'IPython' is not available, we're not in a notebook
 
 
-import time
+def get_hist(sample: typing.Sequence, bins: int | typing.Iterable | None = None, **kwargs) -> tuple[
+    NDArray[np.float64], [np.float64]]:
+    edges = np.array(range(
+        np.floor(sample).min().astype(int),
+        np.ceil(sample).max().astype(int) + 1)) - 0.5
+
+    default = {
+        "density": True,
+    }
+    default.update(kwargs)
 
 
-if is_notebook():
-    from tqdm.notebook import tqdm
-else:
-    from tqdm import tqdm
+    bins, edges = np.histogram(sample, bins=bins or edges, **default)
 
-
-def func(x):
-    print(" ", end="")
-    for _ in tqdm(range(100), desc=str(x), leave=True):
-        time.sleep(0.03)
+    return bins, 0.5 * (edges[1:] + edges[:-1])
