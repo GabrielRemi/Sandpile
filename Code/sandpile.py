@@ -306,7 +306,7 @@ class SandpileND:
         desc = f"dim{self.dimension} grid{self.linear_grid_size} {self.boundary_condition} {self.perturbation}"
         miniters = int(np.ceil(time_steps / 500))
 
-        print("\r", end="", flush=True)
+        print("\r", end=" ", flush=True)
         for position_index, _ in zip(
                 random_positions,
                 tqdm(range(1, time_steps), desc=desc, miniters=miniters, leave=True)):
