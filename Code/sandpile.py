@@ -204,6 +204,7 @@ class SandpileND:
     linear_grid_size: int
     critical_slope: int
     boundary_condition: typing.Literal["open", "closed"] = "open"
+    perturbation: typing.Literal["conservative", "non conservative"] = "conservative"
     start_cfg: Array | None = None
     _shape: tuple = field(init=False, repr=False)
 
@@ -242,9 +243,9 @@ class SandpileND:
 
         return pd.DataFrame({
             "time_step": time_step,
-            "size" : sizes,
-            "time" : times,
-            "reach": reach,
+            "size"     : sizes,
+            "time"     : times,
+            "reach"    : reach,
         })
 
     def _initialize_system(self, start_cfg: Array | None = None) -> None:
@@ -274,6 +275,12 @@ class SandpileND:
 
             cfg[*shifted_position_index] -= 1
 
+    def _non_conservative_perturbation(self, cfg: Array, position_index: typing.Sequence[int]):
+        if len(position_index) != self.dimension:
+            Exception("position index dimension mismatch")
+
+        cfg[*position_index] += self.dimension
+
     def step(self, perturb_position: Array | None = None):
         if perturb_position is None:
             perturb_position = np.random.randint(low=0, high=self.linear_grid_size, size=self.dimension)
@@ -281,7 +288,13 @@ class SandpileND:
         avalanche = check_create_avalanche(self, self._curr_slope)
         if avalanche is not None:
             self._avalanches.append(avalanche)
-        self._conservative_perturbation(self._curr_slope, perturb_position)
+
+        if self.perturbation == "conservative":
+            self._conservative_perturbation(self._curr_slope, perturb_position)
+        elif self.perturbation == "non conservative":
+            self._non_conservative_perturbation(self._curr_slope, perturb_position)
+        else:
+            raise ValueError(f"unknown perturbation type: {self.perturbation}")
 
         self._average_slopes_list.append(self._curr_slope.mean())
 
@@ -290,7 +303,7 @@ class SandpileND:
 
         random_positions = np.random.randint(low=0, high=self.linear_grid_size, size=(time_steps - 1, self.dimension))
 
-        desc = f"dim{self.dimension} grid{self.linear_grid_size} {self.boundary_condition}"
+        desc = f"dim{self.dimension} grid{self.linear_grid_size} {self.boundary_condition} {self.perturbation}"
         miniters = int(np.ceil(time_steps / 500))
 
         print("\r", end="", flush=True)
