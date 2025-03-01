@@ -318,8 +318,11 @@ class SandpileND:
         """Save the data into a file"""
 
         # System specifications
-        s = f"dimension: {self.dimension}, linear_grid_size: {self.linear_grid_size}, "
-        s += f"critical_slope: {self.critical_slope}\n{self.average_slopes.tolist()}\n"
+        s = f"dimension: {self.dimension} linear_grid_size: {self.linear_grid_size} "
+        s += f"critical_slope: {self.critical_slope} "
+        s += f"boundary: {self.boundary_condition} "
+        s += f"perturbation: {self.perturbation}"
+        s += f"\n{self.average_slopes.tolist()}"
 
         for a in self.avalanches:
             s += a.to_str()
@@ -335,7 +338,15 @@ class SandpileND:
         lines = file.readlines()
 
         parameters = [int(x) for x in re.findall(r"\d+", lines[0])]
-        system = SandpileND(dimension=parameters[0], linear_grid_size=parameters[1], critical_slope=parameters[2])
+        boundary_condition = "closed" if "closed" in lines[0] else "open"
+        perturbation = "non conservative" if "non conservative" in lines[0] else "conservative"
+        system = SandpileND(
+            dimension=parameters[0],
+            linear_grid_size=parameters[1],
+            critical_slope=parameters[2],
+            boundary_condition=boundary_condition,
+            perturbation=perturbation,
+        )
         system.average_slopes = np.array(ast.literal_eval(lines[1]))
         system._average_slopes_list = system.average_slopes.tolist()
 
