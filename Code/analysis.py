@@ -25,16 +25,22 @@ def load_system(dim, grid, bound, perturb, crit) -> tuple[SandpileND, pd.DataFra
     return system, data
 
 
-def draw_distribution(x: tp.Sequence, y: tp.Sequence, log_scale: bool = True, **kwargs) -> None:
+def draw_distribution(x: tp.Sequence, y: tp.Sequence, log_scale: bool = True, axis=None, **kwargs) -> None:
     if log_scale:
-        plt.xscale("log")
-        plt.yscale("log")
+        if axis is None:
+            plt.xscale("log")
+            plt.yscale("log")
+        else:
+            axis.set_xscale("log")
+            axis.set_yscale("log")
 
     plt_kwargs = {
         "s": 3
     }
     plt_kwargs.update(kwargs)
-    plt.scatter(x, y, **plt_kwargs)
+    if axis is None:
+        axis = plt
+    axis.scatter(x, y, **plt_kwargs)
 
 
 def _fit_func(x, m, b):
