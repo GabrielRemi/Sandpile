@@ -14,6 +14,8 @@ def draw_slope(system: SandpileND, **kwargs) -> None:
     plt_kwargs.update(kwargs)
 
     plt.plot(range(len(system.average_slopes)), system.average_slopes, **plt_kwargs)
+    plt.xlabel("time steps $t$")
+    plt.ylabel(r"average slope $\langle s \rangle$")
 
 
 def load_system(dim, grid, bound, perturb, crit) -> tuple[SandpileND, pd.DataFrame]:

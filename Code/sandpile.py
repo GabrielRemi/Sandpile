@@ -33,7 +33,7 @@ class Avalanche:
     """Time step at which the avalanche occured."""
     start_cfg: InitVar[Array | None] = None
     """Starting configuration of the system to relax. If not given, do nothing."""
-    termination_time: int = 500
+    termination_time: int = 2500
     """Avalanche time, after which the avalanche is brought to a halt"""
     _size: int = 0
     """Number of critical points integrated over all time steps of the avalanche."""
@@ -322,7 +322,7 @@ class SandpileND:
         s += f"critical_slope: {self.critical_slope} "
         s += f"boundary: {self.boundary_condition} "
         s += f"perturbation: {self.perturbation}"
-        s += f"\n{self.average_slopes.tolist()}"
+        s += f"\n{self.average_slopes.tolist()}\n"
 
         for a in self.avalanches:
             s += a.to_str()

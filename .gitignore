@@ -4,3 +4,6 @@ Code/memory*
 Code/test.data
 #Code/animation.ipynb
 #Code/animation.py
+**/.ipynb_checkpoints
+Code/data
+Code/data/**
