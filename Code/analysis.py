@@ -9,8 +9,11 @@ from sandpile import *
 from utils import *
 
 
-def draw_slope(system: SandpileND) -> None:
-    plt.plot(range(len(system.average_slopes)), system.average_slopes)
+def draw_slope(system: SandpileND, **kwargs) -> None:
+    plt_kwargs = {}
+    plt_kwargs.update(kwargs)
+
+    plt.plot(range(len(system.average_slopes)), system.average_slopes, **plt_kwargs)
 
 
 def load_system(dim, grid, bound, perturb, crit) -> tuple[SandpileND, pd.DataFrame]:
