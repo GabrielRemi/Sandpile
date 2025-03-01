@@ -234,18 +234,21 @@ class SandpileND:
         times: Array = np.zeros(len(self.avalanches))
         reach: Array = np.zeros(len(self.avalanches))
         time_step: NDArray[np.uint64] = np.zeros(len(self.avalanches))
+        dissipation_rate: list[any] = [0] * len(self.avalanches)
 
         for i, a in enumerate(self.avalanches):
             sizes[i] = a.size
             times[i] = a.time
             reach[i] = a.reach
             time_step[i] = a.time_step
+            dissipation_rate[i] = a.dissipation_rate
 
         return pd.DataFrame({
-            "time_step": time_step,
-            "size"     : sizes,
-            "time"     : times,
-            "reach"    : reach,
+            "time_step"       : time_step,
+            "size"            : sizes,
+            "time"            : times,
+            "reach"           : reach,
+            "dissipation_rate": dissipation_rate
         })
 
     def _initialize_system(self, start_cfg: Array | None = None) -> None:
@@ -385,3 +388,18 @@ class SandpileND:
 
         file.close()
         return system
+
+    def save_separate(self, path: str, min_skip: int = 1) -> None:
+        """
+
+        Save the data into separate files. One file for the average slopes,
+        one for the avalanche data.
+
+        :param str path: Path to save the files. Appends some text for each file.
+        :param int min_skip: The spacing of average slopes to save in file. higher
+        numbers reduces disk space
+
+        """
+        np.save(path + ".slopes", self.average_slopes[::min_skip])
+
+        self.get_avalanche_data().to_csv(path + ".avalanche.csv", index=False)
