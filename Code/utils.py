@@ -1,3 +1,4 @@
+import inspect
 import os
 import sys
 import typing
@@ -8,7 +9,15 @@ from IPython import get_ipython
 from numpy.typing import NDArray
 
 
-__all__ = ["get_memory", "is_notebook", "get_hist"]
+def export(function):
+    module_globals = inspect.stack()[1][0].f_globals
+    if "__all__" not in module_globals:
+        module_globals["__all__"] = []
+
+    module_globals["__all__"].append(function.__name__)
+    # print(function.__name__, module_globals["__name__"], module_globals["__all__"])
+
+    return function
 
 
 def get_memory() -> float:
@@ -40,7 +49,6 @@ def get_hist(sample: typing.Sequence, bins: int | typing.Iterable | None = None,
         "density": True,
     }
     default.update(kwargs)
-
 
     bins, edges = np.histogram(sample, bins=bins or edges, **default)
 
