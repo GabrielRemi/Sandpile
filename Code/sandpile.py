@@ -415,8 +415,8 @@ class SandpileND:
 
 
 def run_multiple_samples(system: SandpileND, folder_path: str, time_steps: int, sample_count: int,
-                         start_cfg: Array8 | None = None, **kwargs
-                         ) -> None:
+                         start_cfg: Array8 | None = None, run: bool = True, desc: str = "sample", **kwargs
+                         ) -> None | list[any]:
     """
     Run multiple samples for that system in parallel so that a stastical average of the data
     can be calculated
@@ -425,6 +425,7 @@ def run_multiple_samples(system: SandpileND, folder_path: str, time_steps: int, 
     :param time_steps: number of perturbation updates
     :param sample_count: number of samples to simulate
     :param start_cfg: Starting configuration of the system
+    :param run: If yes, run the simulations. If not, return a list of the processes
     """
     system_desc = f"d{system.dimension}_g{system.linear_grid_size}_c{system.critical_slope}_"
     bound = "op" if system.boundary_condition == "open" else "cl"
@@ -439,15 +440,21 @@ def run_multiple_samples(system: SandpileND, folder_path: str, time_steps: int, 
         print("Name for folder already exists for a file", file=sys.stderr)
 
     system._initialize_system()
-    tasks = [(system, time_steps, start_cfg, i, data_dir, kwargs.get("step") or 1) for i in range(sample_count)]
-    with Pool(cpu_count() - 2) as pool:
-        pool.map(_process, tasks)
+    tasks = [(system, time_steps, start_cfg, i, data_dir, kwargs.get("step") or 1, desc) for i in range(sample_count)]
+
+    if run:
+        with Pool(cpu_count() - 2) as pool:
+            pool.starmap(_process, tasks)
+    else:
+        return [(_process, task) for task in tasks]
 
 
-def _process(args):
-    system, time_steps, start_cfg, index, data_dir, step = args
+def _process(system: SandpileND, time_steps: int, start_cfg: Array8, index: int, data_dir, step: int,
+             desc: str
+             ):
+    # system, time_steps, start_cfg, index, data_dir, step = args
     system = deepcopy(system)
-    system(time_steps, start_cfg, desc=f"Sample {index}", tqdm_position=index)
+    system(time_steps, start_cfg, desc=f"{desc} {index}", tqdm_position=index)
     system.save_separate((data_dir / f"data_{index}").absolute().__str__(), step)
     del system
     gc.collect()
