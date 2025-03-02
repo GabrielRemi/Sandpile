@@ -1,3 +1,4 @@
+import typing
 import typing as tp
 
 import matplotlib.pyplot as plt
@@ -9,11 +10,11 @@ from sandpile import *
 from utils import *
 
 
-def draw_slope(system: SandpileND, **kwargs) -> None:
+def draw_slope(slope: typing.Sequence, step: int = 1, **kwargs) -> None:
     plt_kwargs = {}
     plt_kwargs.update(kwargs)
 
-    plt.plot(range(len(system.average_slopes)), system.average_slopes, **plt_kwargs)
+    plt.plot(np.array(range(len(slope))) * step, slope, **plt_kwargs)
     plt.xlabel("time steps $t$")
     plt.ylabel(r"average slope $\langle s \rangle$")
 

@@ -20,6 +20,12 @@ def export(function):
     return function
 
 
+def load_slope_values(path: str) -> tuple[int, NDArray]:
+    data = np.load(path)
+
+    return data[0], data[1:]
+
+
 def get_memory() -> float:
     """Return memory usage in MB"""
     process = psutil.Process(os.getpid())

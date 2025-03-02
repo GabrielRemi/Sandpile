@@ -1,8 +1,10 @@
 import ast
+import pathlib
 import re
-import typing
 from copy import deepcopy
 from dataclasses import dataclass, field, InitVar
+from multiprocessing import Pool
+from os import cpu_count
 
 from utils import *
 
@@ -15,23 +17,24 @@ else:
 import numpy as np
 from numpy.typing import NDArray
 import pandas as pd
+import gc
 
 
-__all__ = ["Avalanche", "SandpileND", "get_critical_points", "check_create_avalanche"]
+__all__ = ["Avalanche", "SandpileND", "get_critical_points", "check_create_avalanche", "run_multiple_samples"]
 
-Array: type = NDArray[np.int8]
-Index: type = typing.Sequence[int]
+# Array8: type = NDArray[np.int8]
+Array8: type = NDArray[np.int8]
 
 
 @dataclass(repr=True)
 class Avalanche:
     # critical_slope: int
     system: "SandpileND"
-    _starting_point: Index
+    _starting_point: NDArray[np.uint32]
     """The starting position of the avalanche."""
     time_step: int
-    """Time step at which the avalanche occured."""
-    start_cfg: InitVar[Array | None] = None
+    """Time step at which the avalanche occurred."""
+    start_cfg: InitVar[Array8 | None] = None
     """Starting configuration of the system to relax. If not given, do nothing."""
     termination_time: int = 2500
     """Avalanche time, after which the avalanche is brought to a halt"""
@@ -55,7 +58,7 @@ class Avalanche:
                 raise Exception(f"Avalanche was found in a loop after {self.termination_time} relaxations")
 
     @property
-    def starting_point(self) -> Index:
+    def starting_point(self) -> NDArray[np.uint32]:
         return deepcopy(self._starting_point)
 
     @property
@@ -71,10 +74,10 @@ class Avalanche:
         return self._reach
 
     @property
-    def dissipation_rate(self) -> Array:
-        return np.asarray(self._dissipation_rate)
+    def dissipation_rate(self) -> NDArray[np.uint8]:
+        return np.asarray(self._dissipation_rate, dtype=np.uint8)
 
-    def _do_step(self, cfg: Array) -> bool:
+    def _do_step(self, cfg: Array8) -> bool:
         """
         Do a relaxation update of the system configuration and update the avalanche properties.
 
@@ -82,8 +85,6 @@ class Avalanche:
         :return: True if cfg was in critical state, False if already relaxed.
         """
 
-        # critical_points = np.asarray((cfg > self.critical_slope).nonzero()).swapaxes(0, 1)
-        # critical_points = get_critical_points(self.system.critical_slope, cfg)
         critical_points = get_critical_points(self.system.critical_slope, cfg)
         if len(critical_points) == 0:
             return False
@@ -105,7 +106,8 @@ class Avalanche:
 
         return True
 
-    def _obound_check_criticality(self, cfg: Array, position_index: Array) -> None:
+    # noinspection SpellCheckingInspection
+    def _obound_check_criticality(self, cfg: Array8, position_index: Array8) -> None:
         """
         Relax the system by using open boundary conditions. The 'left' borders are always closed.
 
@@ -120,6 +122,7 @@ class Avalanche:
         cfg[*position_index] += -2 * self.system.dimension + boundary_indices
 
         for dimension, single_index in enumerate(position_index):
+            single_index: NDArray[np.uint32]
             shifted_position_index = deepcopy(position_index)
 
             shifted_position_index[dimension] -= 1
@@ -130,7 +133,7 @@ class Avalanche:
                 shifted_position_index[dimension] += 2
                 cfg[*shifted_position_index] += 1
 
-    def _cbound_check_criticality(self, cfg: Array, position_index: Array) -> None:
+    def _cbound_check_criticality(self, cfg: Array8, position_index: Array8) -> None:
         """
         Relax the system by using open boundary conditions. The 'left' borders are always closed.
 
@@ -167,7 +170,7 @@ class Avalanche:
         return s
 
 
-def get_critical_points(critical_slope: int, cfg: Array) -> Array:
+def get_critical_points(critical_slope: int, cfg: Array8) -> NDArray[np.uint32]:
     """
     Find all critical points in the system.
 
@@ -176,10 +179,10 @@ def get_critical_points(critical_slope: int, cfg: Array) -> Array:
     :return: Array of indices of critical points.
     """
 
-    return np.asarray((cfg > critical_slope).nonzero()).swapaxes(0, 1)
+    return np.asarray((cfg > critical_slope).nonzero()).swapaxes(0, 1).astype(np.uint32)
 
 
-def check_create_avalanche(system: "SandpileND", start_cfg: Array) -> Avalanche | None:
+def check_create_avalanche(system: "SandpileND", start_cfg: Array8) -> Avalanche | None:
     """
 
     Check if the system configuration is in a critical system
@@ -193,7 +196,7 @@ def check_create_avalanche(system: "SandpileND", start_cfg: Array) -> Avalanche 
         return None
     elif len(critical_points) == 1:
         return Avalanche(system=system, _starting_point=critical_points[0], start_cfg=start_cfg,
-                         time_step=len(system._average_slopes_list))
+                         time_step=len(system.average_slopes_list))
     else:
         raise Exception("Configuration not the beginning of an avalanche")
 
@@ -205,13 +208,13 @@ class SandpileND:
     critical_slope: int
     boundary_condition: typing.Literal["open", "closed"] = "open"
     perturbation: typing.Literal["conservative", "non conservative"] = "conservative"
-    start_cfg: Array | None = None
+    start_cfg: Array8 | None = None
     _shape: tuple = field(init=False, repr=False)
 
-    _curr_slope: Array = field(init=False, repr=False)
-    # average_slopes: Array = field(init=False, repr=False)
-    _average_slopes_list: list[float] = field(init=False, repr=False)
-    average_slopes: Array = field(init=False, repr=False)
+    _curr_slope: Array8 = field(init=False, repr=False)
+    # average_slopes: Array8 = field(init=False, repr=False)
+    average_slopes_list: list[float] = field(init=False, repr=False)
+    average_slopes: Array8 = field(init=False, repr=False)
     _avalanches: list[Avalanche] = field(init=False, repr=False)
 
     @property
@@ -222,21 +225,21 @@ class SandpileND:
     def shape(self):
         return self._shape
 
-    def get_average_slopes(self) -> Array:
-        return np.asarray(self._average_slopes_list)
+    def get_average_slopes(self) -> Array8:
+        return np.asarray(self.average_slopes_list)
 
     def __post_init__(self):
         self._shape = tuple([self.linear_grid_size] * self.dimension)
         self._initialize_system(self.start_cfg)
 
     def get_avalanche_data(self) -> pd.DataFrame:
-        sizes: Array = np.zeros(len(self.avalanches))
-        times: Array = np.zeros(len(self.avalanches))
-        reach: Array = np.zeros(len(self.avalanches))
+        sizes: Array8 = np.zeros(len(self.avalanches))
+        times: Array8 = np.zeros(len(self.avalanches))
+        reach: Array8 = np.zeros(len(self.avalanches))
         time_step: NDArray[np.uint64] = np.zeros(len(self.avalanches))
         dissipation_rate: list[any] = [0] * len(self.avalanches)
 
-        for i, a in enumerate(self.avalanches):
+        for i, a in enumerate(self._avalanches):
             sizes[i] = a.size
             times[i] = a.time
             reach[i] = a.reach
@@ -251,7 +254,7 @@ class SandpileND:
             "dissipation_rate": dissipation_rate
         })
 
-    def _initialize_system(self, start_cfg: Array | None = None) -> None:
+    def _initialize_system(self, start_cfg: Array8 | None = None) -> None:
         """Initialize the system for the simulation"""
 
         if start_cfg is None:
@@ -261,10 +264,10 @@ class SandpileND:
             raise Exception("Shape mismatch")
 
         self._curr_slope = deepcopy(start_cfg)
-        self._average_slopes_list = [self._curr_slope.mean()]
+        self.average_slopes_list = [self._curr_slope.mean()]
         self._avalanches = []
 
-    def _conservative_perturbation(self, cfg: Array, position_index: typing.Sequence[int]):
+    def _conservative_perturbation(self, cfg: Array8, position_index: typing.Sequence[int]):
         if len(position_index) != self.dimension:
             Exception("position index dimension mismatch")
 
@@ -278,13 +281,13 @@ class SandpileND:
 
             cfg[*shifted_position_index] -= 1
 
-    def _non_conservative_perturbation(self, cfg: Array, position_index: typing.Sequence[int]):
+    def _non_conservative_perturbation(self, cfg: Array8, position_index: typing.Sequence[int]):
         if len(position_index) != self.dimension:
             Exception("position index dimension mismatch")
 
         cfg[*position_index] += self.dimension
 
-    def step(self, perturb_position: Array | None = None):
+    def step(self, perturb_position: Array8 | None = None):
         if perturb_position is None:
             perturb_position = np.random.randint(low=0, high=self.linear_grid_size, size=self.dimension)
 
@@ -299,23 +302,28 @@ class SandpileND:
         else:
             raise ValueError(f"unknown perturbation type: {self.perturbation}")
 
-        self._average_slopes_list.append(self._curr_slope.mean())
+        self.average_slopes_list.append(self._curr_slope.mean())
 
-    def __call__(self, time_steps: int, start_cfg: Array | None = None) -> None:
+    def __call__(self, time_steps: int, start_cfg: Array8 | None = None, desc: str | None = None,
+                 tqdm_position: int = 1
+                 ) -> None:
         self._initialize_system(start_cfg)
 
         random_positions = np.random.randint(low=0, high=self.linear_grid_size, size=(time_steps - 1, self.dimension))
 
-        desc = f"dim{self.dimension} grid{self.linear_grid_size} {self.boundary_condition} {self.perturbation}"
-        miniters = int(np.ceil(time_steps / 500))
+        if desc is None:
+            desc = f"dim{self.dimension} grid{self.linear_grid_size} {self.boundary_condition} {self.perturbation}"
+        min_iters = int(np.ceil(time_steps / 500))
 
-        print("\r", end=" ", flush=True)
+        if is_notebook():
+            # print("\r", end=" ", flush=True)
+            tqdm.write("", end=" ")
         for position_index, _ in zip(
                 random_positions,
-                tqdm(range(1, time_steps), desc=desc, miniters=miniters, leave=True)):
+                tqdm(range(1, time_steps), desc=desc, miniters=min_iters, leave=True, position=tqdm_position)):
             self.step()
 
-        self.average_slopes = np.asarray(self._average_slopes_list)
+        self.average_slopes = np.asarray(self.average_slopes_list)
 
     def save_data(self, path: str) -> None:
         """Save the data into a file"""
@@ -341,17 +349,18 @@ class SandpileND:
         lines = file.readlines()
 
         parameters = [int(x) for x in re.findall(r"\d+", lines[0])]
-        boundary_condition = "closed" if "closed" in lines[0] else "open"
-        perturbation = "non conservative" if "non conservative" in lines[0] else "conservative"
         system = SandpileND(
             dimension=parameters[0],
             linear_grid_size=parameters[1],
             critical_slope=parameters[2],
-            boundary_condition=boundary_condition,
-            perturbation=perturbation,
         )
+        if "closed" in lines[0]:
+            system.boundary_condition = "closed"
+        if "non conservative" in lines[0]:
+            system.perturbation = "non conservative"
+
         system.average_slopes = np.array(ast.literal_eval(lines[1]))
-        system._average_slopes_list = system.average_slopes.tolist()
+        system.average_slopes_list = system.average_slopes.tolist()
 
         aval_data = []
         curr_data = []
@@ -389,17 +398,56 @@ class SandpileND:
         file.close()
         return system
 
-    def save_separate(self, path: str, min_skip: int = 1) -> None:
+    def save_separate(self, path: str, step: int = 1) -> None:
         """
 
         Save the data into separate files. One file for the average slopes,
         one for the avalanche data.
 
         :param str path: Path to save the files. Appends some text for each file.
-        :param int min_skip: The spacing of average slopes to save in file. higher
+        :param int step: The spacing of average slopes to save in file. higher
         numbers reduces disk space
 
         """
-        np.save(path + ".slopes", self.average_slopes[::min_skip])
+        np.save(path + ".slopes", [step, *self.average_slopes[::step]])
 
         self.get_avalanche_data().to_csv(path + ".avalanche.csv", index=False)
+
+
+def run_multiple_samples(system: SandpileND, folder_path: str, time_steps: int, sample_count: int,
+                         start_cfg: Array8 | None = None, **kwargs
+                         ) -> None:
+    """
+    Run multiple samples for that system in parallel so that a stastical average of the data
+    can be calculated
+
+    :param folder_path: Folder where to save generated data
+    :param time_steps: number of perturbation updates
+    :param sample_count: number of samples to simulate
+    :param start_cfg: Starting configuration of the system
+    """
+    system_desc = f"d{system.dimension}_g{system.linear_grid_size}_c{system.critical_slope}_"
+    bound = "op" if system.boundary_condition == "open" else "cl"
+    perturb = "co" if system.perturbation == "conservative" else "nco"
+    system_desc += f"{bound}_{perturb}"
+
+    data_dir = pathlib.Path(folder_path) / system_desc
+    data_dir = data_dir.resolve().absolute()
+    if not data_dir.exists():
+        os.mkdir(data_dir)
+    elif not data_dir.is_dir():
+        print("Name for folder already exists for a file", file=sys.stderr)
+
+    system._initialize_system()
+    tasks = [(system, time_steps, start_cfg, i, data_dir, kwargs.get("step") or 1) for i in range(sample_count)]
+    with Pool(cpu_count() - 2) as pool:
+        pool.map(_process, tasks)
+
+
+def _process(args):
+    system, time_steps, start_cfg, index, data_dir, step = args
+    system = deepcopy(system)
+    system(time_steps, start_cfg, desc=f"Sample {index}", tqdm_position=index)
+    system.save_separate((data_dir / f"data_{index}").absolute().__str__(), step)
+    del system
+    gc.collect()
