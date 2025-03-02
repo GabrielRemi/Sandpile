@@ -43,7 +43,9 @@ def draw_distribution(x: tp.Sequence, y: tp.Sequence, log_scale: bool = True, ax
     plt_kwargs.update(kwargs)
     if axis is None:
         axis = plt
-    axis.scatter(x, y, **plt_kwargs)
+
+    ind = y != 0
+    axis.scatter(x[ind], y[ind], **plt_kwargs)
 
 
 def _fit_func(x, m, b):
@@ -60,3 +62,16 @@ def exponent_fit(x: tp.Sequence, y: tp.Sequence, limit: int | None = None) -> li
     output = curve_fit(_fit_func, x, y, full_output=True)
 
     return [output[0]]
+
+
+def get_conditional_expectation(x_sample: typing.Sequence, y_sample: typing.Sequence, **kwargs):
+    x, y, joint_dist = get_2d_hist(x_sample, y_sample, **kwargs)
+
+    _, y_dist = get_hist(y_sample)
+
+    ind = y_dist > 0
+    y = y[ind]
+
+    e = (joint_dist.transpose() * x).sum(axis=1)[ind] / y_dist[ind]
+
+    return y, e

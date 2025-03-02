@@ -7,7 +7,7 @@ import typing
 import numpy as np
 import pandas as pd
 import psutil  # type: ignore
-from IPython import get_ipython
+from IPython.core.getipython import get_ipython
 from numpy.typing import NDArray
 
 
@@ -63,6 +63,27 @@ def get_hist(sample: typing.Sequence, bins: int | typing.Iterable | None = None,
     return 0.5 * (edges[1:] + edges[:-1]), bins
 
 
+def get_2d_hist(x_sample: typing.Sequence, y_sample: typing.Sequence, **kwargs
+                ) -> tuple[NDArray[np.float64], [np.float64], NDArray[np.float64]]:
+    edges = []
+    for sample in [x_sample, y_sample]:
+        e = np.array(range(
+            np.floor(sample).min().astype(int),
+            np.ceil(sample).max().astype(int) + 1)) - 0.5
+        edges.append(e)
+
+    hist_kwargs = {
+        "density": True,
+    }
+    hist_kwargs.update(kwargs)
+
+    bins, _, _ = np.histogram2d(x_sample, y_sample, bins=(edges[0], edges[1]), **hist_kwargs)
+    x = 0.5 * (edges[0][1:] + edges[0][:-1])
+    y = 0.5 * (edges[1][1:] + edges[1][:-1])
+
+    return x, y, bins
+
+
 def get_system_params_from_name(name: str) -> dict[str, any]:
     """
 
@@ -90,11 +111,12 @@ def get_system_params_from_name(name: str) -> dict[str, any]:
     if values[4] == "co":
         result["perturbation"] = "conservative"
     elif values[4] == "nco":
-        result["perturbation"] = "nonconservative"
+        result["perturbation"] = "non conservative"
     else:
         raise ValueError(f"unknown perturbation {values[4]}")
 
     return result
+
 
 def get_short_params(dct: dict[str, any]) -> dict[str, any]:
     val = dct["boundary_condition"]
