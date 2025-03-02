@@ -313,7 +313,8 @@ class SandpileND:
 
         if desc is None:
             desc = f"dim{self.dimension} grid{self.linear_grid_size} {self.boundary_condition} {self.perturbation}"
-        min_iters = int(np.ceil(time_steps / 500))
+        # min_iters = int(np.ceil(time_steps / 500))
+        min_iters = 100
 
         if is_notebook():
             # print("\r", end=" ", flush=True)
