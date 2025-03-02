@@ -62,6 +62,7 @@ def get_hist(sample: typing.Sequence, bins: int | typing.Iterable | None = None,
 
     return 0.5 * (edges[1:] + edges[:-1]), bins
 
+
 def get_system_params_from_name(name: str) -> dict[str, any]:
     """
 
@@ -94,6 +95,16 @@ def get_system_params_from_name(name: str) -> dict[str, any]:
         raise ValueError(f"unknown perturbation {values[4]}")
 
     return result
+
+def get_short_params(dct: dict[str, any]) -> dict[str, any]:
+    val = dct["boundary_condition"]
+    dct["boundary_condition"] = "op" if val == "open" else "cl"
+
+    val = dct["perturbation"]
+    dct["perturbation"] = "co" if val == "conservative" else "nco"
+
+    return dct
+
 
 def load_combine_avalanche_data_samples(data_dir: str | pathlib.Path) -> pd.DataFrame:
     if isinstance(data_dir, str):

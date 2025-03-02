@@ -10,13 +10,15 @@ from sandpile import *
 from utils import *
 
 
-def draw_slope(slope: typing.Sequence, step: int = 1, **kwargs) -> None:
+def draw_slope(slope: typing.Sequence, step: int = 1, ax=None, **kwargs) -> None:
     plt_kwargs = {}
     plt_kwargs.update(kwargs)
 
-    plt.plot(np.array(range(len(slope))) * step, slope, **plt_kwargs)
-    plt.xlabel("time steps $t$")
-    plt.ylabel(r"average slope $\langle s \rangle$")
+    if ax is None:
+        ax = plt
+    ax.plot(np.array(range(len(slope))) * step, slope, **plt_kwargs)
+    # plt.xlabel("time steps $t$")
+    # plt.ylabel(r"average slope $\langle s \rangle$")
 
 
 def load_system(dim, grid, bound, perturb, crit) -> tuple[SandpileND, pd.DataFrame]:
