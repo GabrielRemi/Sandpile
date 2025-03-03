@@ -128,15 +128,16 @@ def get_short_params(dct: dict[str, any]) -> dict[str, any]:
     return dct
 
 
-def load_combine_avalanche_data_samples(data_dir: str | pathlib.Path) -> pd.DataFrame:
+def load_combine_avalanche_data_samples(data_dir: str | pathlib.Path, with_dissipation: bool = True) -> pd.DataFrame:
     if isinstance(data_dir, str):
         data_dir = pathlib.Path(data_dir)
     elif not isinstance(data_dir, pathlib.Path):
         raise TypeError("data_dir must be pathlib.Path or str")
 
     df = pd.DataFrame({})
+    use_cols = [0, 1, 2, 3] if not with_dissipation else None
     for file in data_dir.glob("*.avalanche.csv"):
-        dfn = pd.read_csv(file)
+        dfn = pd.read_csv(file, usecols=use_cols)
         df = pd.concat([df, dfn], axis=0)
 
     return df.reset_index(drop=True)
