@@ -3,6 +3,7 @@ import os
 import pathlib
 import sys
 import typing
+import re
 
 import numpy as np
 import pandas as pd
@@ -127,17 +128,31 @@ def get_short_params(dct: dict[str, any]) -> dict[str, any]:
 
     return dct
 
+if is_notebook():
+    import tqdm.notebook as tqdm
+else:
+    import tqdm as tqdm
 
-def load_combine_avalanche_data_samples(data_dir: str | pathlib.Path, with_dissipation: bool = True) -> pd.DataFrame:
+def load_combine_avalanche_data_samples(data_dir: str | pathlib.Path, with_dissipation: bool = True,
+                                        down_casting: bool = True) -> pd.DataFrame:
     if isinstance(data_dir, str):
         data_dir = pathlib.Path(data_dir)
     elif not isinstance(data_dir, pathlib.Path):
         raise TypeError("data_dir must be pathlib.Path or str")
 
     df = pd.DataFrame({})
-    use_cols = [0, 1, 2, 3] if not with_dissipation else None
-    for file in data_dir.glob("*.avalanche.csv"):
-        dfn = pd.read_csv(file, usecols=use_cols)
+    for file in data_dir.glob("*.avalanche.csv.gz"):
+        dfn = pd.read_csv(file)
+        dfn["sample"] = int(re.findall(r"\d+", file.name)[0])
         df = pd.concat([df, dfn], axis=0)
 
-    return df.reset_index(drop=True)
+    dp_rates = []
+    if with_dissipation:
+        for file in data_dir.glob("*.avalanche.npz"):
+            data = np.load(file)
+            dp_rates.extend([data[f"arr_{i}"] for i in range(len(data))])
+
+        df["dissipation_rate"] = dp_rates
+
+
+    return df.reset_index().set_index(["sample", "time_step"])

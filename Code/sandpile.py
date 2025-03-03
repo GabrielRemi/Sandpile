@@ -4,7 +4,7 @@ import re
 from copy import deepcopy
 from dataclasses import dataclass, field, InitVar
 from multiprocessing import Pool
-from os import cpu_count
+from os import cpu_count, urandom
 
 from utils import *
 
@@ -403,7 +403,7 @@ class SandpileND:
         """
 
         Save the data into separate files. One file for the average slopes,
-        one for the avalanche data.
+        one for the avalanche data and one for the avalanche dissipation rates.
 
         :param str path: Path to save the files. Appends some text for each file.
         :param int step: The spacing of average slopes to save in file. higher
@@ -412,7 +412,10 @@ class SandpileND:
         """
         np.save(path + ".slopes", [step, *self.average_slopes[::step]])
 
-        self.get_avalanche_data().to_csv(path + ".avalanche.csv", index=False)
+        df = self.get_avalanche_data()
+        df["time_step size time reach".split()].to_csv(path + ".avalanche.csv.gz", index=False, compression="gzip")
+
+        np.savez_compressed(path + ".avalanche.npz", *df["dissipation_rate"])
 
 
 def run_multiple_samples(system: SandpileND, folder_path: str, time_steps: int, sample_count: int,
@@ -453,7 +456,7 @@ def run_multiple_samples(system: SandpileND, folder_path: str, time_steps: int, 
 def _process(system: SandpileND, time_steps: int, start_cfg: Array8, index: int, data_dir, step: int,
              desc: str
              ):
-    # system, time_steps, start_cfg, index, data_dir, step = args
+    np.random.seed(int.from_bytes(urandom(4), "big"))
     system = deepcopy(system)
     system(time_steps, start_cfg, desc=f"{desc} {index}", tqdm_position=index)
     system.save_separate((data_dir / f"data_{index}").absolute().__str__(), step)
