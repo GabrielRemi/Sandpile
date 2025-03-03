@@ -1,28 +1,24 @@
 import numpy as np
 
 
-# pythran export get_critical_points(uint8[:], uint8)
-# pythran export get_critical_points(uint8[:,:], uint8)
-# pythran export get_critical_points(uint8[:,:,:], uint8)
-# pythran export get_critical_points(uint8[:,:,:,:], uint8)
-# pythran export get_critical_points(uint8[:,:,:,:,:], uint8)
-# pythran export get_critical_points(uint8[:,:,:,:,:,:], uint8)
-# pythran export get_critical_points(uint8[:,:,:,:,:,:,:], uint8)
-def get_critical_points(cfg, critical_slope):
+# pythran export get_critical_points(int8[:], uint8, uint8, uint8) -> uint8[:] list
+def get_critical_points(cfg, critical_slope, dim, grid_size):
     """
     Find all critical points in the system.
 
     :param critical_slope: Critical slope of the system.
     :param cfg: current system configuration.
+    :param dim: dimension of the system.
+    :param grid_size: grid size of the system.
     :return: Array of indices of critical points.
     """
 
-    return np.asarray(np.nonzero(cfg > critical_slope)).swapaxes(0, 1).astype(np.uint8)
+    points = np.asarray(np.nonzero(cfg > critical_slope)).swapaxes(0, 1).astype(np.uint8)
+    return [unravel_index(p[0], dim, grid_size) for p in points]
 
 
-
-# pythran export to_flattened_index(uint8[:], uint8) -> uint32
-def to_flattened_index(multiindex, grid):
+# pythran export ravel_index(uint8[:], uint8) -> uint32
+def ravel_index(multiindex, grid):
     result = 0
     curr_pow = 0
 
@@ -31,6 +27,15 @@ def to_flattened_index(multiindex, grid):
         curr_pow += 1
 
     return result
+
+# pythran export unravel_index(uint32, uint8, uint8) -> uint8[:]
+def unravel_index(index, dim, grid_size):
+    indices = [0] * dim
+    for i in reversed(range(dim)):
+        indices[i] = index % grid_size
+        index = np.floor(index / grid_size).astype(int)
+
+    return np.array(indices)
 
 
 # pythran export op_bound_system_relax(int8[:], uint8[:], uint8)
@@ -46,44 +51,54 @@ def op_bound_system_relax(cfg, position_index, grid_size) -> None:
     dim = len(position_index)
 
     if np.any(position_index == 0):
-        cfg[to_flattened_index(position_index, grid_size)] = 0
+        cfg[ravel_index(position_index, grid_size)] = 0
         return
 
     boundary_indices = np.nonzero(position_index == (grid_size - 1))[0]
     # return cfg[to_flattened_index(position_index, grid_size)]
-    cfg[to_flattened_index(position_index, grid_size)] += -2 * dim + len(boundary_indices)
+    cfg[ravel_index(position_index, grid_size)] += -2 * dim + len(boundary_indices)
 
     for dimension, single_index in enumerate(position_index):
         shifted_position_index = position_index.copy()
 
         shifted_position_index[dimension] -= 1
 
-        cfg[to_flattened_index(shifted_position_index, grid_size)] += 1
+        cfg[ravel_index(shifted_position_index, grid_size)] += 1
 
         if single_index < (grid_size - 1):
             shifted_position_index[dimension] += 2
-            cfg[to_flattened_index(shifted_position_index, grid_size)] += 1
+            cfg[ravel_index(shifted_position_index, grid_size)] += 1
 
-# def _cbound_check_criticality(self, cfg: Array, position_index: Array) -> None:
-#     """
-#     Relax the system by using open boundary conditions. The 'left' borders are always closed.
+
+# pythran export cl_bound_system_relax(int8[:], uint8[:], uint8)
+# noinspection SpellCheckingInspection
+def cl_bound_system_relax(cfg, position_index, grid_size) -> None:
+    """
+    Relax the system by using open boundary conditions. The 'left' borders are always closed.
+
+    :param cfg: configuration to relax.
+    :param position_index: position of the relaxation process.
+    :param grid_size: linear size of the grid
+    """
+    if np.any(position_index == 0) or np.any(position_index == (grid_size - 1)):
+        cfg[ravel_index(position_index, grid_size)] = 0
+        return
+
+    dim = len(position_index)
+    cfg[ravel_index(position_index, grid_size)] -= 2 * dim
+
+    for dimension, single_index in enumerate(position_index):
+        shifted_position_index = position_index.copy()
+
+        shifted_position_index[dimension] -= 1
+        cfg[ravel_index(shifted_position_index, grid_size)] += 1
+
+        shifted_position_index[dimension] += 2
+        cfg[ravel_index(shifted_position_index, grid_size)] += 1
+
+
+# pythran export do_step(int8[:], (int, int, int, float), uint8 list)
+# def do_step(cfg, avalanche_data, dissipation_rate):
+#     time_step, size, time, reach = avalanche_data
 #
-#     :param cfg: configuration to relax.
-#     :param position_index: position of the relaxation process.
-#     """
-#     # print(position_index)
-#     if np.any(position_index == 0) or np.any(position_index == (self.system.linear_grid_size - 1)):
-#         # print("border!")
-#         cfg[*position_index] = 0
-#         return
-#
-#     cfg[*position_index] -= 2 * self.system.dimension
-#
-#     for dimension, single_index in enumerate(position_index):
-#         shifted_position_index = deepcopy(position_index)
-#
-#         shifted_position_index[dimension] -= 1
-#         cfg[*shifted_position_index] += 1
-#
-#         shifted_position_index[dimension] += 2
-#         cfg[*shifted_position_index] += 1
+#     return time_step, size, time, reach + 1
