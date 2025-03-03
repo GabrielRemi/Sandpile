@@ -150,6 +150,7 @@ def plot_scaling_exponents(data: pd.DataFrame, exponents: pd.Series | None = Non
             bins = 50
         else:
             bins = None
+        bins = None # TODO what with this
         x, y = get_hist(data[obs], bins=bins)
         ind = (x != 0) & (y != 0)
         draw_distribution(x[ind], y[ind], axis=ax[0, i], s=3)

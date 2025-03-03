@@ -99,6 +99,7 @@ class Avalanche:
 
         self._dissipation_rate.append(len(critical_points))
 
+        return False  # TODO
         for critical_point in np.random.permutation(critical_points):
             if self.system.boundary_condition == "open":
                 self._obound_check_criticality(cfg, critical_point)
@@ -215,10 +216,8 @@ class SandpileND:
     _shape: tuple = field(init=False, repr=False)
 
     _curr_slope: Array = field(init=False, repr=False)
-    # average_slopes: Array = field(init=False, repr=False)
     average_slopes_list: list[float] = field(init=False, repr=False)
     average_slopes: Array = field(init=False, repr=False)
-    # _avalanches: list[Avalanche] = field(init=False, repr=False)
     _avalanches: dict[str, int | float | Array] = field(init=False, repr=False, default_factory=dict)
 
     @property
@@ -239,26 +238,6 @@ class SandpileND:
         self._initialize_system(self.start_cfg)
 
     def get_avalanche_data(self) -> pd.DataFrame:
-        # sizes: Array = np.zeros(len(self.avalanches))
-        # times: Array = np.zeros(len(self.avalanches))
-        # reach: Array = np.zeros(len(self.avalanches))
-        # time_step: NDArray[np.uint64] = np.zeros(len(self.avalanches))
-        # dissipation_rate: list[any] = [0] * len(self.avalanches)
-        #
-        # for i, a in enumerate(self._avalanches):
-        #     sizes[i] = a.size
-        #     times[i] = a.time
-        #     reach[i] = a.reach
-        #     time_step[i] = a.time_step
-        #     dissipation_rate[i] = a.dissipation_rate
-        #
-        # return pd.DataFrame({
-        #     "time_step"       : time_step,
-        #     "size"            : sizes,
-        #     "time"            : times,
-        #     "reach"           : reach,
-        #     "dissipation_rate": dissipation_rate
-        # })
         return pd.DataFrame(self._avalanches)
 
     def _append_avalanche_data_to_dict(self, av: Avalanche) -> None:
@@ -280,10 +259,10 @@ class SandpileND:
         self._curr_slope = deepcopy(start_cfg)
         self.average_slopes_list = [self._curr_slope.mean()]
         self._avalanches = {
-            "time_step": [],
-            "size": [],
-            "time": [],
-            "reach": [],
+            "time_step"       : [],
+            "size"            : [],
+            "time"            : [],
+            "reach"           : [],
             "dissipation_rate": []
         }
 

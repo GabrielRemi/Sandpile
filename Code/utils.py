@@ -129,9 +129,7 @@ def get_short_params(dct: dict[str, any]) -> dict[str, any]:
     return dct
 
 
-def load_combine_avalanche_data_samples(data_dir: str | pathlib.Path, with_dissipation: bool = True,
-                                        down_casting: bool = True
-                                        ) -> pd.DataFrame:
+def load_combine_avalanche_data_samples(data_dir: str | pathlib.Path, with_dissipation: bool = False) -> pd.DataFrame:
     if isinstance(data_dir, str):
         data_dir = pathlib.Path(data_dir)
     elif not isinstance(data_dir, pathlib.Path):
