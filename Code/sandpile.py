@@ -1,6 +1,4 @@
 import ast
-import pathlib
-import re
 from copy import deepcopy
 from dataclasses import dataclass, field, InitVar
 from multiprocessing import Pool
@@ -438,13 +436,23 @@ def run_multiple_samples(system: SandpileND, folder_path: str, time_steps: int, 
 
     data_dir = pathlib.Path(folder_path) / system_desc
     data_dir = data_dir.resolve().absolute()
+
+    pre_run_num = 0  # if data was simulated before, the number of samples before this
     if not data_dir.exists():
         os.mkdir(data_dir)
     elif not data_dir.is_dir():
         print("Name for folder already exists for a file", file=sys.stderr)
+    else:
+        clear = kwargs.get("clear", False)
+        if clear:
+            for file in data_dir.iterdir():
+                file.unlink()
+        else:
+            pre_run_num = len(list(data_dir.glob("*.csv.gz")))
 
     system._initialize_system()
-    tasks = [(system, time_steps, start_cfg, i, data_dir, kwargs.get("step") or 1, desc) for i in range(sample_count)]
+    tasks = [(system, time_steps, start_cfg, i, data_dir, kwargs.get("step") or 1, desc) for i in
+             range(pre_run_num, sample_count + pre_run_num)]
 
     if run:
         with Pool(cpu_count() - 2) as pool:

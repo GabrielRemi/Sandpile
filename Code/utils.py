@@ -128,13 +128,10 @@ def get_short_params(dct: dict[str, any]) -> dict[str, any]:
 
     return dct
 
-if is_notebook():
-    import tqdm.notebook as tqdm
-else:
-    import tqdm as tqdm
 
 def load_combine_avalanche_data_samples(data_dir: str | pathlib.Path, with_dissipation: bool = True,
-                                        down_casting: bool = True) -> pd.DataFrame:
+                                        down_casting: bool = True
+                                        ) -> pd.DataFrame:
     if isinstance(data_dir, str):
         data_dir = pathlib.Path(data_dir)
     elif not isinstance(data_dir, pathlib.Path):
@@ -154,5 +151,5 @@ def load_combine_avalanche_data_samples(data_dir: str | pathlib.Path, with_dissi
 
         df["dissipation_rate"] = dp_rates
 
-
-    return df.reset_index().set_index(["sample", "time_step"])
+    return df.reset_index(drop=True).set_index(["sample", "time_step"])
+    # return df.reset_index()
