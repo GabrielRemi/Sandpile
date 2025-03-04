@@ -13,7 +13,7 @@ def get_critical_points(cfg, critical_slope, dim, grid_size):
     :return: Array of indices of critical points.
     """
 
-    points = np.asarray(np.nonzero(cfg > critical_slope)).swapaxes(0, 1).astype(np.uint8)
+    points = np.asarray(np.nonzero(cfg > critical_slope)).swapaxes(0, 1).astype(np.uint64)
     return [unravel_index(p[0], dim, grid_size) for p in points]
 
 
@@ -29,7 +29,7 @@ def ravel_index(multiindex, grid):
     return result
 
 
-# pythran export unravel_index(uint32, uint8, uint8) -> uint8[:]
+# pythran export unravel_index(uint64, uint8, uint8) -> uint8[:]
 def unravel_index(index, dim, grid_size):
     indices = [0] * dim
     for i in reversed(range(dim)):

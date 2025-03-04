@@ -1,4 +1,4 @@
-from .utils import relax_avalanche
+from .utils import *
 
 
 
