@@ -98,7 +98,7 @@ def cl_bound_system_relax(cfg, position_index, grid_size) -> None:
         cfg[ravel_index(shifted_position_index, grid_size)] += 1
 
 
-# pythran export relax_avalanche(uint64, int8[:], uint8[:], (uint8, uint8, uint8, bool))
+# pythran export relax_avalanche(uint64, int8[:], uint8[:], (uint64, uint8, uint8, bool))
 def relax_avalanche(time_step, start_cfg, start_point, system):
     """
 
@@ -138,4 +138,4 @@ def relax_avalanche(time_step, start_cfg, start_point, system):
     if i == (max_step - 1):
         raise Exception("Max number of step iterations reached.")
 
-    return (time_step, size, time, reach), dissipation_rate, i
+    return (time_step, size, time, reach), np.array(dissipation_rate, dtype=np.uint8)
