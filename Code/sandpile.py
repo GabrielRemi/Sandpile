@@ -38,6 +38,7 @@ class SandpileND:
     average_slopes_list: list[float] = field(init=False, repr=False)
     average_slopes: Array = field(init=False, repr=False)
     _avalanches: dict[str, int | float | Array] = field(init=False, repr=False, default_factory=dict)
+    _perturb_func: typing.Callable[[Array, typing.Sequence[int]], None] = field(init=False, repr=False)
 
     @property
     def shape(self):
@@ -66,6 +67,12 @@ class SandpileND:
 
     def _initialize_system(self, start_cfg: Array | None = None) -> None:
         """Initialize the system for the simulation"""
+        if self.perturbation == "conservative":
+            self._perturb_func = self._conservative_perturbation
+        elif self.perturbation == "non conservative":
+            self._perturb_func = self._non_conservative_perturbation
+        else:
+            raise ValueError(f"unknown perturbation type: {self.perturbation}")
 
         if start_cfg is None:
             start_cfg = np.zeros(shape=self._shape, dtype=np.int8)
@@ -107,12 +114,7 @@ class SandpileND:
         if perturb_position is None:
             perturb_position = np.random.randint(low=0, high=self.linear_grid_size, size=self.dimension, dtype=np.uint8)
 
-        if self.perturbation == "conservative":
-            self._conservative_perturbation(self._curr_slope, perturb_position)
-        elif self.perturbation == "non conservative":
-            self._non_conservative_perturbation(self._curr_slope, perturb_position)
-        else:
-            raise ValueError(f"unknown perturbation type: {self.perturbation}")
+        self._perturb_func(self._curr_slope, perturb_position)
 
         if self._curr_slope[*perturb_position] > self.critical_slope:
             b = True if self.boundary_condition == "closed" else False
@@ -123,12 +125,15 @@ class SandpileND:
 
         self.average_slopes_list.append(self._curr_slope.mean())
 
-    def __call__(self, time_steps: int, start_cfg: Array | None = None, desc: str | None = None,
+    def __call__(self, time_steps: int, start_cfg: Array | None = None,
+                 with_progress_bar: bool = True,
+                 desc: str | None = None,
                  tqdm_position: int = 1
                  ) -> None:
         self._initialize_system(start_cfg)
 
-        random_positions = np.random.randint(low=0, high=self.linear_grid_size, size=(time_steps - 1, self.dimension))
+        random_positions = np.random.randint(low=0, high=self.linear_grid_size,
+                                             size=(time_steps - 1, self.dimension), dtype=np.uint8)
 
         if desc is None:
             desc = f"dim{self.dimension} grid{self.linear_grid_size} {self.boundary_condition} {self.perturbation}"
@@ -138,10 +143,15 @@ class SandpileND:
         if is_notebook():
             # print("\r", end=" ", flush=True)
             tqdm.write("", end=" ")
-        for position_index, _ in zip(
-                random_positions,
-                tqdm(range(1, time_steps), desc=desc, miniters=min_iters, leave=True, position=tqdm_position)):
-            self.step()
+
+        if with_progress_bar:
+            for position_index, _ in zip(
+                    random_positions,
+                    tqdm(range(1, time_steps), desc=desc, miniters=min_iters, leave=True, position=tqdm_position)):
+                self.step()
+        else:
+            for position_index in random_positions:
+                self.step()
 
         self.average_slopes = np.asarray(self.average_slopes_list)
 
@@ -212,6 +222,7 @@ class SandpileND:
                 pool.starmap(_process, tasks)
         else:
             return [(_process, task) for task in tasks]
+
 
 def _process(system: SandpileND, time_steps: int, start_cfg: Array, index: int, data_dir, step: int,
              desc: str
