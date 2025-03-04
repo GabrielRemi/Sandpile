@@ -28,6 +28,7 @@ def ravel_index(multiindex, grid):
 
     return result
 
+
 # pythran export unravel_index(uint32, uint8, uint8) -> uint8[:]
 def unravel_index(index, dim, grid_size):
     indices = [0] * dim
@@ -97,8 +98,44 @@ def cl_bound_system_relax(cfg, position_index, grid_size) -> None:
         cfg[ravel_index(shifted_position_index, grid_size)] += 1
 
 
-# pythran export do_step(int8[:], (int, int, int, float), uint8 list)
-# def do_step(cfg, avalanche_data, dissipation_rate):
-#     time_step, size, time, reach = avalanche_data
-#
-#     return time_step, size, time, reach + 1
+# pythran export do_step(int8[:], uint8[:], uint8, uint8, uint8, (int, int, int, float), uint8 list, str)
+def do_step(cfg, start_point, critical_slope, dim, grid, avalanche_data, dissipation_rate,
+            boundary="closed"
+            ):
+    """
+
+    Do one relaxation step.
+
+    :param cfg: Current system configuration.
+    :param start_point: System configuration before relaxation.
+    :param critical_slope: Critical slope of the system.
+    :param dim: dimension of the system.
+    :param grid: linear size of the grid
+    :param avalanche_data: (time_step, size, time, reach)
+    :param dissipation_rate: dissipation rate of the avalanche.
+    :param boundary: Boundary conditions of the avalanche.
+    :return: false if relaxed and updated avalanche_data as tuple.
+    """
+
+    critical_points = get_critical_points(cfg, critical_slope, dim, grid)
+    if len(critical_points) == 0:
+        return False, avalanche_data, dissipation_rate
+    time_step, size, time, reach = avalanche_data
+
+    size += len(critical_points)
+    time += 1
+    dissipation_rate.append(len(critical_points))
+
+    max_distance = np.max([np.sqrt((_p - start_point) ** 2) for _p in critical_points])
+    reach = max(max_distance, reach)
+
+    np.random.shuffle(critical_points)
+    for critical_point in critical_points:
+        if boundary == "open":
+            op_bound_system_relax(cfg, critical_point, grid)
+        elif boundary == "closed":
+            cl_bound_system_relax(cfg, critical_point, grid)
+        else:
+            raise ValueError("unknown boundary condition type")
+
+    return True, (time_step, size, time, reach), dissipation_rate
