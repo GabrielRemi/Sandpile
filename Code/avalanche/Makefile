@@ -1,2 +1,3 @@
-avalanche:
-	pythran -DUSE_XSIMD -fopenmp -march=native main.py
+utils:
+	pythran -DUSE_XSIMD -fopenmp -march=native utils.py
+

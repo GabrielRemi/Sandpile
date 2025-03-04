@@ -98,44 +98,44 @@ def cl_bound_system_relax(cfg, position_index, grid_size) -> None:
         cfg[ravel_index(shifted_position_index, grid_size)] += 1
 
 
-# pythran export do_step(int8[:], uint8[:], uint8, uint8, uint8, (int, int, int, float), uint8 list, str)
-def do_step(cfg, start_point, critical_slope, dim, grid, avalanche_data, dissipation_rate,
-            boundary="closed"
-            ):
+# pythran export relax_avalanche(uint64, int8[:], uint8[:], (uint8, uint8, uint8, bool))
+def relax_avalanche(time_step, start_cfg, start_point, system):
     """
 
-    Do one relaxation step.
-
-    :param cfg: Current system configuration.
-    :param start_point: System configuration before relaxation.
-    :param critical_slope: Critical slope of the system.
-    :param dim: dimension of the system.
-    :param grid: linear size of the grid
-    :param avalanche_data: (time_step, size, time, reach)
-    :param dissipation_rate: dissipation rate of the avalanche.
-    :param boundary: Boundary conditions of the avalanche.
-    :return: false if relaxed and updated avalanche_data as tuple.
+    :param time_step:
+    :param start_cfg:
+    :param start_point:
+    :param system: (dim, grid, critical_slope, closed)
+    :return:
     """
+    dim, grid, critical_slope, closed = system
+    dissipation_rate = []
+    size, time, reach = 0, 0, 0
 
-    critical_points = get_critical_points(cfg, critical_slope, dim, grid)
-    if len(critical_points) == 0:
-        return False, avalanche_data, dissipation_rate
-    time_step, size, time, reach = avalanche_data
+    max_step = 5000
+    i = 0
+    if closed:
+        relax = cl_bound_system_relax
+    else:
+        relax = op_bound_system_relax
 
-    size += len(critical_points)
-    time += 1
-    dissipation_rate.append(len(critical_points))
+    for i in range(max_step):
+        critical_points = get_critical_points(start_cfg, critical_slope, dim, grid)
+        if len(critical_points) == 0:
+            break
 
-    max_distance = np.max([np.sqrt((_p - start_point) ** 2) for _p in critical_points])
-    reach = max(max_distance, reach)
+        size += len(critical_points)
+        time += 1
+        dissipation_rate.append(len(critical_points))
 
-    np.random.shuffle(critical_points)
-    for critical_point in critical_points:
-        if boundary == "open":
-            op_bound_system_relax(cfg, critical_point, grid)
-        elif boundary == "closed":
-            cl_bound_system_relax(cfg, critical_point, grid)
-        else:
-            raise ValueError("unknown boundary condition type")
+        max_distance = np.max([np.sqrt(((_p - start_point) ** 2).sum()) for _p in critical_points])
+        reach = max(max_distance, reach)
 
-    return True, (time_step, size, time, reach), dissipation_rate
+        # np.random.shuffle(critical_points)
+        for critical_point in critical_points:
+            relax(start_cfg, critical_point, grid)
+
+    if i == (max_step - 1):
+        raise Exception("Max number of step iterations reached.")
+
+    return (time_step, size, time, reach), dissipation_rate, i
