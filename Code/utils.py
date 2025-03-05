@@ -11,6 +11,11 @@ import psutil  # type: ignore
 from IPython.core.getipython import get_ipython
 from numpy.typing import NDArray
 
+import multiprocessing as mp
+from tqdm.notebook import tqdm
+
+
+# from tqdm import tqdm
 
 def export(function):
     module_globals = inspect.stack()[1][0].f_globals
@@ -150,4 +155,23 @@ def load_combine_avalanche_data_samples(data_dir: str | pathlib.Path, with_dissi
         df["dissipation_rate"] = dp_rates
 
     return df.reset_index(drop=True).set_index(["sample", "time_step"])
-    # return df.reset_index()
+    # return df.reset_index(drop=True)
+
+
+def load_dissipation_rates(data_dir: str | pathlib.Path) -> list[list[NDArray[np.int8]]]:
+    if isinstance(data_dir, str):
+        data_dir = pathlib.Path(data_dir)
+
+    it = list(data_dir.glob("*.avalanche.npz"))
+
+    # TODO not working in terminals, only notebooks
+    with mp.Pool(mp.cpu_count() - 2) as p:
+        p: mp.Pool
+        dissipation_rates = list(tqdm(p.imap_unordered(_load_file, it), total=len(it)))
+
+    return dissipation_rates
+
+
+def _load_file(file) -> list[NDArray[np.uint8]]:
+    data = np.load(file)
+    return list(data.values())

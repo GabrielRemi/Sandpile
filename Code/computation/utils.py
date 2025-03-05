@@ -1,49 +1,51 @@
 import numpy as np
 
 
-# pythran export auto_correlation(int[], int[]) -> (float[], float[])
-# pythran export auto_correlation(uint64[], uint64[]) -> (float[], float[])
-# pythran export auto_correlation(float[], float[]) -> (float[], float[])
-def auto_correlation(x, y):
+# pythran export auto_correlation(uint64[], uint64[], bool) -> (float[], float[])
+# pythran export auto_correlation(float[], float[], bool) -> (float[], float[])
+def auto_correlation(x, y, fast):
     n = len(x)
-    if n % 2 == 0:
-        x = x[:-1]
-        y = y[:-1]
-    result = [np.mean(y * np.roll(y, i)) for i in range((n))]
-    result = np.roll(result, int(n / 2))
-
+    # if n % 2 == 0:
+    #     x = x[:-1]
+    #     y = y[:-1]
     dis = x[-1] - x[0]
-    tau = np.linspace(-dis / 2, dis / 2, n)
+    # tau = np.linspace(-dis / 2, dis / 2, n)
+    tau = np.linspace(0, dis, n)
 
-    return tau, result
+    if not fast:
+        result = np.array([np.mean(y * np.roll(y, i)) for i in range(n)])
+        # result = np.roll(result / result[0], n // 2)
+
+        return tau, result
+    else:
+        corr = np.fft.ifft(np.fft.ifft(y) * np.fft.fft(y)).real
+        # return tau, np.roll(corr / corr[0], n//2)
+        return tau, corr
 
 
-# def get_total_dissipation_rate(dissipation_rates, time_steps):
-#     diff = np.diff(time_steps)
-#     # return dissipation_rates[0]
-#     total_dissipation_rate = []
-#     total_dissipation_rate.extend([0] * time_steps[0])
-#     total_dissipation_rate.extend(dissipation_rates[0])
+# pythran export get_total_dissipation_rate(uint8[] list, uint64) -> int[], int
+def get_total_dissipation_rate(dissipation_rates, max_time):
+    # n = np.ceil(len(dissipation_rates) / perturbation_rate).astype(np.uint64)
+
+    j = np.zeros(max_time, dtype=np.uint64)
+    starting_points = np.random.randint(0, max_time, size=len(dissipation_rates))
+
+    for ind, dis in zip(starting_points, dissipation_rates):
+        # for k in range(ind, n):
+        #     j[k % n] += dis[k - i]
+        for k, d in enumerate(dis):
+            j[(k + ind) % max_time] += d
+
+    return j, int(max_time)
+
+
+# def load_dissipation_rates(data_dir: str):
+#     dissipation_rates = []
 #
+#     for file in data_dir.glob("*.avalanche.npz"):
+#         data = np.load(file)
+#         dissipation_rates.append([data[d] for d in data])
 #
-#     for d, r in zip(diff, dissipation_rates[1:]):
-#         total_dissipation_rate.extend([0] * int(d))
-#         total_dissipation_rate.extend(r)
-#
-#     x = np.array(range(len(total_dissipation_rate)), dtype=np.uint64)
-#     y = np.array(total_dissipation_rate, dtype=np.uint64)
-#
-#     return x, y
+#     return dissipation_rates
 
-# pythran export get_total_dissipation_rate(uint8[] list, float) -> int[], int
-def get_total_dissipation_rate(dissipation_rates, perturbation_rate):
-    n = np.ceil(len(dissipation_rates) / perturbation_rate).astype(np.uint64)
-
-    j = np.zeros(n, dtype=np.uint64)
-
-    for dis in dissipation_rates:
-        i = np.random.randint(0, n - len(dis))
-        for k in range(i, n):
-            j[k] += dis[k - i]
-
-    return j, int(n)
+# pythran export test(str)

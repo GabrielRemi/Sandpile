@@ -54,8 +54,8 @@ def _fit_func(x, m, b):
     return x * m + b
 
 
-def calculate_scaling_exponent(x: tp.Sequence, y: tp.Sequence, lower_limit: int | None = None,
-                               upper_limit: int | None = None
+def calculate_scaling_exponent(x: tp.Sequence, y: tp.Sequence, lower_limit: int | float | None = None,
+                               upper_limit: int | float | None = None
                                ) -> tuple[unc.core.Variable, unc.core.Variable]:
     x, y = np.asarray(x), np.asarray(y)
 
@@ -150,7 +150,7 @@ def plot_scaling_exponents(data: pd.DataFrame, exponents: pd.Series | None = Non
             bins = 50
         else:
             bins = None
-        bins = None # TODO what with this
+        bins = None  # TODO what with this
         x, y = get_hist(data[obs], bins=bins)
         ind = (x != 0) & (y != 0)
         draw_distribution(x[ind], y[ind], axis=ax[0, i], s=3)

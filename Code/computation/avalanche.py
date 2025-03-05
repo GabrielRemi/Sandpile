@@ -2,6 +2,7 @@ import numpy as np
 
 
 # pythran export get_critical_points(int16[:], uint8, uint8, uint8) -> uint8[:] list
+# pythran export get_critical_points(int8[:], uint8, uint8, uint8) -> uint8[:] list
 def get_critical_points(cfg, critical_slope, dim, grid_size):
     """
     Find all critical points in the system.
@@ -41,6 +42,7 @@ def unravel_index(index, dim, grid_size):
 
 
 # pythran export op_bound_system_relax(int16[:], uint8[:], uint8)
+# pythran export op_bound_system_relax(int8[:], uint8[:], uint8)
 # noinspection SpellCheckingInspection
 def op_bound_system_relax(cfg, position_index, grid_size) -> None:
     """
@@ -51,6 +53,11 @@ def op_bound_system_relax(cfg, position_index, grid_size) -> None:
     :param grid_size: linear size of the grid
     """
     dim = len(position_index)
+    # if cfg.dtype == np.int16:
+    #     dim = np.int16(len(position_index))
+    # elif cfg.dtype == np.int8:
+    #     dim = np.int8(len(position_index))
+
 
     if np.any(position_index == 0):
         cfg[ravel_index(position_index, grid_size)] = 0
@@ -73,6 +80,7 @@ def op_bound_system_relax(cfg, position_index, grid_size) -> None:
 
 
 # pythran export cl_bound_system_relax(int16[:], uint8[:], uint8)
+# pythran export cl_bound_system_relax(int8[:], uint8[:], uint8)
 # noinspection SpellCheckingInspection
 def cl_bound_system_relax(cfg, position_index, grid_size) -> None:
     """
@@ -85,10 +93,13 @@ def cl_bound_system_relax(cfg, position_index, grid_size) -> None:
     if np.any(position_index == 0) or np.any(position_index == (grid_size - 1)):
         cfg[ravel_index(position_index, grid_size)] = 0
         return
+    dim = len(position_index)
+    # if cfg.dtype == np.int16:
+    #     dim = np.int16(len(position_index))
+    # elif cfg.dtype == np.int8:
+    #     dim = np.int8(len(position_index))
 
-    dim = np.uint8(len(position_index))
-
-    cfg[ravel_index(position_index, grid_size)] -= 2 * np.int16(dim)
+    cfg[ravel_index(position_index, grid_size)] -= 2 * dim
 
     for dimension, single_index in enumerate(position_index):
         shifted_position_index = position_index.copy()
@@ -100,8 +111,10 @@ def cl_bound_system_relax(cfg, position_index, grid_size) -> None:
         cfg[ravel_index(shifted_position_index, grid_size)] += 1
 
 
-
-# pythran export relax_avalanche(uint32, int16[:], uint8[:], (uint8, uint8, uint8, bool))
+# pythran export relax_avalanche(uint32, int16[:], uint8[:], (uint8, uint8, uint8, bool)) -> ((uint32, uint32,
+# float32), uint8[:])
+# pythran export relax_avalanche(uint32, int8[:], uint8[:], (uint8, uint8, uint8, bool)) -> ((uint32, uint32,
+# float32), uint8[:])
 def relax_avalanche(time_step, start_cfg, start_point, system):
     """
 
@@ -115,7 +128,7 @@ def relax_avalanche(time_step, start_cfg, start_point, system):
     dissipation_rate = []
     size, time, reach = 0, 0, 0.
 
-    max_step = 5000
+    max_step = 5_000
     i = 0
     if closed:
         relax = cl_bound_system_relax
@@ -131,7 +144,9 @@ def relax_avalanche(time_step, start_cfg, start_point, system):
         time += 1
         dissipation_rate.append(len(critical_points))
 
-        max_distance = np.max([np.sqrt(((_p - start_point) ** 2).sum()) for _p in critical_points])
+        # max_distance = np.max([np.sqrt(((_p - start_point) ** 2).sum()) for _p in critical_points])
+        max_distance = np.max(
+            [np.sqrt(((_p.astype(np.float64) - start_point.astype(np.float64)) ** 2).sum()) for _p in critical_points])
         reach = max(max_distance, reach)
 
         np.random.shuffle(critical_points)
@@ -142,4 +157,3 @@ def relax_avalanche(time_step, start_cfg, start_point, system):
         raise Exception("Max number of step iterations reached.")
 
     return (time_step, size, time, reach), np.array(dissipation_rate, dtype=np.uint8)
-

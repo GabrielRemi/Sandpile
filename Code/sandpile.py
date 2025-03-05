@@ -3,8 +3,9 @@ from dataclasses import dataclass, field
 from multiprocessing import Pool
 from os import cpu_count, urandom
 
-from avalanche import relax_avalanche
+from computation import relax_avalanche
 from utils import *
+import json
 
 
 if is_notebook():
@@ -76,6 +77,8 @@ class SandpileND:
 
         if start_cfg is None:
             start_cfg = np.zeros(shape=self._shape, dtype=np.int8)
+            if self.perturbation == "conservative" and self.boundary_condition == "closed":
+                start_cfg = start_cfg.astype(np.int16)
 
         if start_cfg.shape != self._shape:
             raise Exception("Shape mismatch")
@@ -119,11 +122,26 @@ class SandpileND:
         if self._curr_slope[*perturb_position] > self.critical_slope:
             b = True if self.boundary_condition == "closed" else False
             s = (self.dimension, self.linear_grid_size, self.critical_slope, b)
-            av_data, dissipation_rate = relax_avalanche(len(self.average_slopes_list), self._curr_slope.reshape(-1),
-                                                        perturb_position, s)
-            self._append_avalanche_data_to_dict(av_data, dissipation_rate)
+            c = self._curr_slope.copy()
+            try:
+                av_data, dissipation_rate = relax_avalanche(len(self.average_slopes_list), self._curr_slope.reshape(-1),
+                                                            perturb_position, s)
+                self._append_avalanche_data_to_dict(av_data, dissipation_rate)
+            except Exception as e:
+                # with open("sandpile_error.log", "w") as f:
+                #     print(len(self.average_slopes_list), self._curr_slope.tolist(),
+                #           perturb_position, s, file=f)
+                err = {
+                    "time stamp": len(self.average_slopes_list),
+                    "curr slope": c.tolist(),
+                    "pos"       : perturb_position.tolist(),
+                    "system"    : s,
+                }
+                with open("sandpile_error.log", "w") as f:
+                    json.dump(err, f, indent=4)
+                raise e
 
-        self.average_slopes_list.append(self._curr_slope.mean())
+            self.average_slopes_list.append(self._curr_slope.mean())
 
     def __call__(self, time_steps: int, start_cfg: Array | None = None,
                  with_progress_bar: bool = True,
@@ -155,20 +173,21 @@ class SandpileND:
 
         self.average_slopes = np.asarray(self.average_slopes_list)
 
-    def save_separate(self, path: str, step: int = 1) -> None:
+    def save_separate(self, path: str, step: int = 1, time_cut_off: int = 0) -> None:
         """
 
         Save the data into separate files. One file for the average slopes,
-        one for the avalanche data and one for the avalanche dissipation rates.
+        one for the computation data and one for the computation dissipation rates.
 
         :param str path: Path to save the files. Appends some text for each file.
         :param int step: The spacing of average slopes to save in file. higher
+        :param int time_cut_off: do not include any avalanches before that time step
         numbers reduces disk space
 
         """
         np.save(path + ".slopes", [step, *self.average_slopes[::step]])
 
-        df = self.get_avalanche_data()
+        df = self.get_avalanche_data().query(f"time_step > {time_cut_off}")
         df["time_step size time reach".split()].to_csv(path + ".avalanche.csv.gz", index=False, compression="gzip")
 
         np.savez_compressed(path + ".avalanche.npz", *df["dissipation_rate"])
@@ -214,8 +233,9 @@ class SandpileND:
                 pre_run_num = len(list(data_dir.glob("*.csv.gz")))
 
         system._initialize_system()
-        tasks = [(system, time_steps, start_cfg, i, data_dir, kwargs.get("step") or 1, desc) for i in
-                 range(pre_run_num, sample_count + pre_run_num)]
+        tasks = [
+            (system, time_steps, start_cfg, i, data_dir, kwargs.get("step") or 1, desc, kwargs.get("time_cut_off", 0))
+            for i in range(pre_run_num, sample_count + pre_run_num)]
 
         if run:
             with Pool(cpu_count() - 2) as pool:
@@ -225,11 +245,11 @@ class SandpileND:
 
 
 def _process(system: SandpileND, time_steps: int, start_cfg: Array, index: int, data_dir, step: int,
-             desc: str
+             desc: str, time_cut_off: int = 0
              ):
     np.random.seed(int.from_bytes(urandom(4), "big"))
     system = deepcopy(system)
     system(time_steps, start_cfg, desc=f"{desc} {index}", tqdm_position=index)
-    system.save_separate((data_dir / f"data_{index}").absolute().__str__(), step)
+    system.save_separate((data_dir / f"data_{index}").absolute().__str__(), step, time_cut_off=time_cut_off)
     del system
     gc.collect()
