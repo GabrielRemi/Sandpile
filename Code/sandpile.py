@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from multiprocessing import Pool
 from os import cpu_count, urandom
 
-from computation import relax_avalanche
+from computation import relax_avalanche, get_total_dissipation_rate
 from utils import *
 import json
 
@@ -18,8 +18,6 @@ from numpy.typing import NDArray
 import pandas as pd
 import gc
 
-
-__all__ = "SandpileND get_avalanche_hist_3d".split()
 
 # Array: type = NDArray[np.int8]
 Array: type = NDArray[np.uint8] | NDArray[np.uint32]
@@ -56,6 +54,9 @@ class SandpileND:
 
     def get_avalanche_data(self) -> pd.DataFrame:
         return pd.DataFrame(self._avalanches)
+
+    def get_distribution(self, cut_off_time: int = 0) -> tuple[list[NDArray], NDArray]:
+        return get_avalanche_hist_3d(pd.DataFrame(self._avalanches).query(f"time_step > {cut_off_time}"))
 
     def _append_avalanche_data_to_dict(self, av_data: tuple[int, int, int, float],
                                        dissipation_rate: NDArray[np.uint8]
@@ -171,7 +172,7 @@ class SandpileND:
 
         self.average_slopes = np.asarray(self.average_slopes_list)
 
-    def save_separate(self, path: str, step: int = 1, time_cut_off: int = 0) -> None:
+    def save_separate(self, path: str, step: int = 1, time_cut_off: int = 0, max_time: int = 2000) -> None:
         """
 
         Save the data into separate files. One file for the average slopes,
@@ -179,16 +180,19 @@ class SandpileND:
 
         :param str path: Path to save the files. Appends some text for each file.
         :param int step: The spacing of average slopes to save in file. higher
-        :param int time_cut_off: do not include any avalanches before that time step
         numbers reduces disk space
+        :param int time_cut_off: do not include any avalanches before that time step
+        :param int max_time: maximum time in the total dissipation rate
 
         """
         np.save(path + ".slopes", [step, *self.average_slopes[::step]])
 
         df = self.get_avalanche_data().query(f"time_step > {time_cut_off}")
-        df["time_step size time reach".split()].to_csv(path + ".avalanche.csv.gz", index=False, compression="gzip")
+        df["size time reach".split()].to_csv(path + ".avalanche.csv", index=False)
 
-        np.savez_compressed(path + ".avalanche.npz", *df["dissipation_rate"])
+        # np.savez_compressed(path + ".avalanche.npz", *df["dissipation_rate"])
+        tdr = get_total_dissipation_rate(list(df["dissipation_rate"]), max_time)
+        np.save(path + ".total_dissipation_rate.npy", tdr)
 
     def copy(self) -> "SandpileND":
         return deepcopy(self)
@@ -216,6 +220,11 @@ class SandpileND:
 
         data_dir = pathlib.Path(folder_path) / system_desc
         data_dir = data_dir.resolve().absolute()
+        # edges = [
+        # np.array(range(0, 2001)) - 0.5,
+        # np.array(range(1, 251)) - 0.5,
+        # np.array(range(0, 251)) - 0.5
+        # ]
 
         pre_run_num = 0  # if data was simulated before, the number of samples before this
         if not data_dir.exists():
@@ -232,27 +241,42 @@ class SandpileND:
 
         system._initialize_system()
         tasks = [
-            (system, time_steps, start_cfg, i, data_dir, kwargs.get("step") or 1, desc, kwargs.get("time_cut_off", 0))
+            (system, time_steps, start_cfg, i, data_dir, kwargs.get("step") or 1, desc,
+             kwargs.get("time_cut_off", 0), kwargs.get("max_time", 2000))
             for i in range(pre_run_num, sample_count + pre_run_num)]
 
-        if run:
-            with Pool(cpu_count() - 2) as pool:
-                # pool.starmap(_process, tasks)
-                list(tqdm(pool.imap_unordered(_process_args_list, tasks), total=sample_count, desc=system_desc))
-        else:
-            return [(_process, task) for task in tasks]
+        # if run:
+        with Pool(cpu_count() - 2) as pool:
+            list(tqdm(pool.imap_unordered(_process_args_list, tasks), total=sample_count, desc=system_desc))
+
+        # total_bin_values = np.sum(bins, axis=0)
+        # bin_centers = [0.5 * (x[1:] + x[:-1]) for x in edges]
+        # np.savez_compressed(data_dir / "distribution.npz", size=bin_centers[0], time=bin_centers[1],
+        #                     reach=bin_centers[2],
+        #                     bins=total_bin_values)
+        # else:
+        #     return [(_process, task) for task in tasks]
+        if kwargs.get("to_distribution", False):
+            generate_3d_distribution_from_data_sample(data_dir)
+            for file in data_dir.glob("*.csv"):
+                file.unlink()
 
 
 def _process(system: SandpileND, time_steps: int, start_cfg: Array, index: int, data_dir, step: int,
-             desc: str, time_cut_off: int = 0
+             desc: str, time_cut_off: int = 0, max_time: int = 2000
              ):
     np.random.seed(int.from_bytes(urandom(4), "big"))
     system = deepcopy(system)
-    # system(time_steps, start_cfg, desc=f"{desc} {index}", tqdm_position=index)
     system(time_steps, start_cfg, with_progress_bar=False)
-    system.save_separate((data_dir / f"data_{index}").absolute().__str__(), step, time_cut_off=time_cut_off)
+    system.save_separate((data_dir / f"data_{index}").absolute().__str__(), step,
+                         time_cut_off=time_cut_off, max_time=max_time)
+
+    # df = system.get_avalanche_data()
+    # bins, _ = np.histogramdd((df["size"], df["time"], df["reach"]), bins=[*edges])
     del system
     gc.collect()
+
+    # return bins
 
 
 def _process_args_list(args):
@@ -267,10 +291,29 @@ def get_avalanche_hist_3d(df: pd.DataFrame):
             np.floor(df[p]).min().astype(int),
             np.ceil(df[p]).max().astype(int) + 1)) - 0.5)
 
-
     bins, _ = np.histogramdd((df["size"], df["time"], df["reach"]), bins=[*edges])
     for i in range(3):
         edges[i] = 0.5 * (edges[i][1:] + edges[i][:-1])
 
-
     return edges, bins
+
+
+def generate_3d_distribution_from_data_sample(data_dir: str | pathlib.Path, sample_count: int | None = None):
+    df = load_combine_avalanche_data_samples(data_dir, with_dissipation=False, sample_count=sample_count)
+    if isinstance(data_dir, str):
+        data_dir = pathlib.Path(data_dir)
+
+    centers, bins = get_avalanche_hist_3d(df)
+    np.savez_compressed(data_dir / "distribution.npz",
+                        size=centers[0],
+                        time=centers[1],
+                        reach=centers[2],
+                        bins=bins)
+
+
+def load_3d_dist(data_dir: str | pathlib.Path):
+    if isinstance(data_dir, str):
+        data_dir = pathlib.Path(data_dir)
+    data = np.load(data_dir / "distribution.npz")
+
+    return (data["size"], data["time"], data["reach"]), data["bins"]

@@ -15,6 +15,7 @@ import multiprocessing as mp
 from tqdm.notebook import tqdm
 
 
+
 # from tqdm import tqdm
 
 def export(function):
@@ -143,7 +144,7 @@ def load_combine_avalanche_data_samples(data_dir: str | pathlib.Path, with_dissi
         raise TypeError("data_dir must be pathlib.Path or str")
 
     df = pd.DataFrame({})
-    files = data_dir.glob("*.avalanche.csv.gz")
+    files = data_dir.glob("*.avalanche.csv")
     for i, file in enumerate(files):
         if sample_count is not None and i == sample_count:
             break
@@ -161,7 +162,8 @@ def load_combine_avalanche_data_samples(data_dir: str | pathlib.Path, with_dissi
 
         df["dissipation_rate"] = dp_rates
 
-    return df.reset_index(drop=True).set_index(["sample", "time_step"])
+    df.index.name = "index"
+    return df.reset_index().set_index(["sample", "index"])
 
 
 def load_dissipation_rates(data_dir: str | pathlib.Path) -> list[list[NDArray[np.int8]]]:

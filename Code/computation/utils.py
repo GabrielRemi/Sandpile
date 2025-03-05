@@ -23,7 +23,7 @@ def auto_correlation(x, y, fast):
         return tau, corr
 
 
-# pythran export get_total_dissipation_rate(uint8[] list, uint64) -> int[], int
+# pythran export get_total_dissipation_rate(uint8[] list, uint64) -> uint[]
 def get_total_dissipation_rate(dissipation_rates, max_time):
     # n = np.ceil(len(dissipation_rates) / perturbation_rate).astype(np.uint64)
 
@@ -36,16 +36,4 @@ def get_total_dissipation_rate(dissipation_rates, max_time):
         for k, d in enumerate(dis):
             j[(k + ind) % max_time] += d
 
-    return j, int(max_time)
-
-
-# def load_dissipation_rates(data_dir: str):
-#     dissipation_rates = []
-#
-#     for file in data_dir.glob("*.avalanche.npz"):
-#         data = np.load(file)
-#         dissipation_rates.append([data[d] for d in data])
-#
-#     return dissipation_rates
-
-# pythran export test(str)
+    return j
