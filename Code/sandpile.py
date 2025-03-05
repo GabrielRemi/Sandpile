@@ -19,7 +19,7 @@ import pandas as pd
 import gc
 
 
-__all__ = "SandpileND".split()
+__all__ = "SandpileND get_avalanche_hist_3d".split()
 
 # Array: type = NDArray[np.int8]
 Array: type = NDArray[np.uint8] | NDArray[np.uint32]
@@ -141,7 +141,7 @@ class SandpileND:
                     json.dump(err, f, indent=4)
                 raise e
 
-            self.average_slopes_list.append(self._curr_slope.mean())
+        self.average_slopes_list.append(self._curr_slope.mean())
 
     def __call__(self, time_steps: int, start_cfg: Array | None = None,
                  with_progress_bar: bool = True,
@@ -158,11 +158,9 @@ class SandpileND:
         min_iters = int(np.ceil(time_steps / 500))
         min_iters = min(min_iters, 100)
 
-        if is_notebook():
-            # print("\r", end=" ", flush=True)
-            tqdm.write("", end=" ")
-
         if with_progress_bar:
+            if is_notebook():
+                tqdm.write("", end=" ")
             for position_index, _ in zip(
                     random_positions,
                     tqdm(range(1, time_steps), desc=desc, miniters=min_iters, leave=True, position=tqdm_position)):
@@ -239,7 +237,8 @@ class SandpileND:
 
         if run:
             with Pool(cpu_count() - 2) as pool:
-                pool.starmap(_process, tasks)
+                # pool.starmap(_process, tasks)
+                list(tqdm(pool.imap_unordered(_process_args_list, tasks), total=sample_count, desc=system_desc))
         else:
             return [(_process, task) for task in tasks]
 
@@ -249,7 +248,29 @@ def _process(system: SandpileND, time_steps: int, start_cfg: Array, index: int, 
              ):
     np.random.seed(int.from_bytes(urandom(4), "big"))
     system = deepcopy(system)
-    system(time_steps, start_cfg, desc=f"{desc} {index}", tqdm_position=index)
+    # system(time_steps, start_cfg, desc=f"{desc} {index}", tqdm_position=index)
+    system(time_steps, start_cfg, with_progress_bar=False)
     system.save_separate((data_dir / f"data_{index}").absolute().__str__(), step, time_cut_off=time_cut_off)
     del system
     gc.collect()
+
+
+def _process_args_list(args):
+    return _process(*args)
+
+
+def get_avalanche_hist_3d(df: pd.DataFrame):
+    parameter = "size time reach".split()
+    edges = []
+    for p in parameter:
+        edges.append(np.array(range(
+            np.floor(df[p]).min().astype(int),
+            np.ceil(df[p]).max().astype(int) + 1)) - 0.5)
+
+
+    bins, _ = np.histogramdd((df["size"], df["time"], df["reach"]), bins=[*edges])
+    for i in range(3):
+        edges[i] = 0.5 * (edges[i][1:] + edges[i][:-1])
+
+
+    return edges, bins

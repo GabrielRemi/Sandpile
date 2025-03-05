@@ -134,28 +134,34 @@ def get_short_params(dct: dict[str, any]) -> dict[str, any]:
     return dct
 
 
-def load_combine_avalanche_data_samples(data_dir: str | pathlib.Path, with_dissipation: bool = False) -> pd.DataFrame:
+def load_combine_avalanche_data_samples(data_dir: str | pathlib.Path, with_dissipation: bool = False,
+                                        sample_count: int | None = None
+                                        ) -> pd.DataFrame:
     if isinstance(data_dir, str):
         data_dir = pathlib.Path(data_dir)
     elif not isinstance(data_dir, pathlib.Path):
         raise TypeError("data_dir must be pathlib.Path or str")
 
     df = pd.DataFrame({})
-    for file in data_dir.glob("*.avalanche.csv.gz"):
+    files = data_dir.glob("*.avalanche.csv.gz")
+    for i, file in enumerate(files):
+        if sample_count is not None and i == sample_count:
+            break
         dfn = pd.read_csv(file)
         dfn["sample"] = int(re.findall(r"\d+", file.name)[0])
         df = pd.concat([df, dfn], axis=0)
 
     dp_rates = []
     if with_dissipation:
-        for file in data_dir.glob("*.avalanche.npz"):
+        for i, file in enumerate(files):
+            if sample_count is not None and i == sample_count:
+                break
             data = np.load(file)
             dp_rates.extend([data[f"arr_{i}"] for i in range(len(data))])
 
         df["dissipation_rate"] = dp_rates
 
     return df.reset_index(drop=True).set_index(["sample", "time_step"])
-    # return df.reset_index(drop=True)
 
 
 def load_dissipation_rates(data_dir: str | pathlib.Path) -> list[list[NDArray[np.int8]]]:
