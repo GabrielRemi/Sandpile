@@ -117,6 +117,7 @@ class SandpileND:
     def step(self, perturb_position: Array | None = None):
         if perturb_position is None:
             perturb_position = np.random.randint(low=0, high=self.linear_grid_size, size=self.dimension, dtype=np.uint8)
+        perturb_position = np.asarray(perturb_position, dtype=np.uint8)
 
         self._perturb_func(self._curr_slope, perturb_position)
 
