@@ -8,3 +8,4 @@ Code/test.data
 **/.ipynb_checkpoints
 Code/data
 Code/data/**
+**/build/
