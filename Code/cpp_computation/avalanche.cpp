@@ -24,7 +24,7 @@ uint64_t ravel_index(py::array_t<uint8_t> multi_index, uint8_t grid)
     auto buf = multi_index.unchecked<1>();
     for (ssize_t i = buf.shape(0) - 1; i >= 0; --i)
     {
-        result += static_cast<uint64_t>(buf(i)) * std::pow(static_cast<uint64_t>(grid), curr_pow);
+        result += static_cast<uint64_t>(buf(i)) * static_cast<uint64_t>(std::pow(static_cast<uint64_t>(grid), curr_pow));
         // result += buf(i) * std::pow(grid, curr_pow);
         curr_pow += 1;
     }

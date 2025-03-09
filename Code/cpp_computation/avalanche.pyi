@@ -1,30 +1,19 @@
-import numpy as np
-from numpy.typing import NDArray
-from dataclasses import dataclass
-
-# @dataclass
+from __future__ import annotations
+import numpy
+import typing
+__all__ = ['SystemMeta', 'get_critical_points', 'ravel_index']
 class SystemMeta:
-    """Meta"""
-
-    dim: np.uint8
-    grid: np.uint8
-    crit_slope: np.uint8
-    closed_boundary: bool
-    
-    def __init__(self, dim: int, grid: int, crit_slope: int, 
-                 closed_boundary: bool)
-    """Some"""
-    
-def ravel_index(multi_index: NDArray[np.uint8], grid: int) -> np.uint64
-    """Ravel Index."""
-
-def get_critical_points(cfg: NDArray, meta) -> list[NDArray[np.uint8]]:
-    """
-    Find all critical points in the system.
-
-    :param critical_slope: Critical slope of the system.
-    :param cfg: current system configuration.
-    :param dim: dimension of the system.
-    :param grid_size: grid size of the system.
-    :return: Array of indices of critical points.
-    """
+    closed_bounday: bool
+    crit_slope: int
+    dim: int
+    grid: int
+    def __init__(self, arg0: int, arg1: int, arg2: int, arg3: bool) -> None:
+        ...
+@typing.overload
+def get_critical_points(arg0: numpy.ndarray[numpy.int8], arg1: SystemMeta) -> list[numpy.ndarray[numpy.uint8]]:
+    ...
+@typing.overload
+def get_critical_points(arg0: numpy.ndarray[numpy.int16], arg1: SystemMeta) -> list[numpy.ndarray[numpy.uint8]]:
+    ...
+def ravel_index(arg0: numpy.ndarray[numpy.uint8], arg1: int) -> int:
+    ...
