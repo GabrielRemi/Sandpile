@@ -1,6 +1,6 @@
 test_data
 d2*/
-test*
+test.*
 **/__pycache__/
 **/.vscode/
 **/build/
