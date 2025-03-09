@@ -58,9 +58,9 @@ class SandpileND:
     def get_distribution(self, cut_off_time: int = 0) -> tuple[list[NDArray], NDArray]:
         return get_avalanche_hist_3d(pd.DataFrame(self._avalanches).query(f"time_step > {cut_off_time}"))
 
-    def _append_avalanche_data_to_dict(self, av_data: tuple[int, int, int, float],
-                                       dissipation_rate: NDArray[np.uint8]
-                                       ) -> None:
+    def _append_avalanche_data_to_dict(
+        self, av_data: tuple[int, int, int, float], dissipation_rate: NDArray[np.uint8]
+    ) -> None:
         self._avalanches["time_step"].append(av_data[0])
         self._avalanches["size"].append(av_data[1])
         self._avalanches["time"].append(av_data[2])
@@ -86,13 +86,7 @@ class SandpileND:
 
         self._curr_slope = deepcopy(start_cfg)
         self.average_slopes_list = [self._curr_slope.mean()]
-        self._avalanches = {
-            "time_step"       : [],
-            "size"            : [],
-            "time"            : [],
-            "reach"           : [],
-            "dissipation_rate": []
-        }
+        self._avalanches = {"time_step": [], "size": [], "time": [], "reach": [], "dissipation_rate": []}
 
     def _conservative_perturbation(self, cfg: Array, position_index: typing.Sequence[int]):
         if len(position_index) != self.dimension:
@@ -126,8 +120,9 @@ class SandpileND:
             s = (self.dimension, self.linear_grid_size, self.critical_slope, b)
             c = self._curr_slope.copy()
             try:
-                av_data, dissipation_rate = relax_avalanche(len(self.average_slopes_list), self._curr_slope.reshape(-1),
-                                                            perturb_position, s)
+                av_data, dissipation_rate = relax_avalanche(
+                    len(self.average_slopes_list), self._curr_slope.reshape(-1), perturb_position, s
+                )
                 self._append_avalanche_data_to_dict(av_data, dissipation_rate)
             except Exception as e:
                 # with open("sandpile_error.log", "w") as f:
@@ -136,8 +131,8 @@ class SandpileND:
                 err = {
                     "time stamp": len(self.average_slopes_list),
                     "curr slope": c.tolist(),
-                    "pos"       : perturb_position.tolist(),
-                    "system"    : s,
+                    "pos": perturb_position.tolist(),
+                    "system": s,
                 }
                 with open("sandpile_error.log", "w") as f:
                     json.dump(err, f, indent=4)
@@ -145,15 +140,19 @@ class SandpileND:
 
         self.average_slopes_list.append(self._curr_slope.mean())
 
-    def __call__(self, time_steps: int, start_cfg: Array | None = None,
-                 with_progress_bar: bool = True,
-                 desc: str | None = None,
-                 tqdm_position: int = 1
-                 ) -> None:
+    def __call__(
+        self,
+        time_steps: int,
+        start_cfg: Array | None = None,
+        with_progress_bar: bool = True,
+        desc: str | None = None,
+        tqdm_position: int = 1,
+    ) -> None:
         self._initialize_system(start_cfg)
 
-        random_positions = np.random.randint(low=0, high=self.linear_grid_size,
-                                             size=(time_steps - 1, self.dimension), dtype=np.uint8)
+        random_positions = np.random.randint(
+            low=0, high=self.linear_grid_size, size=(time_steps - 1, self.dimension), dtype=np.uint8
+        )
 
         if desc is None:
             desc = f"dim{self.dimension} grid{self.linear_grid_size} {self.boundary_condition} {self.perturbation}"
@@ -164,8 +163,9 @@ class SandpileND:
             if is_notebook():
                 tqdm.write("", end=" ")
             for position_index, _ in zip(
-                    random_positions,
-                    tqdm(range(1, time_steps), desc=desc, miniters=min_iters, leave=True, position=tqdm_position)):
+                random_positions,
+                tqdm(range(1, time_steps), desc=desc, miniters=min_iters, leave=True, position=tqdm_position),
+            ):
                 self.step()
         else:
             for position_index in random_positions:
@@ -198,9 +198,16 @@ class SandpileND:
     def copy(self) -> "SandpileND":
         return deepcopy(self)
 
-    def run_multiple_samples(self, folder_path: str, time_steps: int, sample_count: int,
-                             start_cfg: Array | None = None, run: bool = True, desc: str = "sample", **kwargs
-                             ) -> None | list[any]:
+    def run_multiple_samples(
+        self,
+        folder_path: str,
+        time_steps: int,
+        sample_count: int,
+        start_cfg: Array | None = None,
+        run: bool = True,
+        desc: str = "sample",
+        **kwargs,
+    ) -> None | list[any]:
         """
         Run multiple samples for that system in parallel so that a statistical average of the data
         can be calculated
@@ -242,9 +249,19 @@ class SandpileND:
 
         system._initialize_system()
         tasks = [
-            (system, time_steps, start_cfg, i, data_dir, kwargs.get("step") or 1, desc,
-             kwargs.get("time_cut_off", 0), kwargs.get("max_time", 2000))
-            for i in range(pre_run_num, sample_count + pre_run_num)]
+            (
+                system,
+                time_steps,
+                start_cfg,
+                i,
+                data_dir,
+                kwargs.get("step") or 1,
+                desc,
+                kwargs.get("time_cut_off", 0),
+                kwargs.get("max_time", 2000),
+            )
+            for i in range(pre_run_num, sample_count + pre_run_num)
+        ]
 
         # if run:
         with Pool(cpu_count() - 2) as pool:
@@ -263,14 +280,23 @@ class SandpileND:
                 file.unlink()
 
 
-def _process(system: SandpileND, time_steps: int, start_cfg: Array, index: int, data_dir, step: int,
-             desc: str, time_cut_off: int = 0, max_time: int = 2000
-             ):
+def _process(
+    system: SandpileND,
+    time_steps: int,
+    start_cfg: Array,
+    index: int,
+    data_dir,
+    step: int,
+    desc: str,
+    time_cut_off: int = 0,
+    max_time: int = 2000,
+):
     np.random.seed(int.from_bytes(urandom(4), "big"))
     system = deepcopy(system)
     system(time_steps, start_cfg, with_progress_bar=False)
-    system.save_separate((data_dir / f"data_{index}").absolute().__str__(), step,
-                         time_cut_off=time_cut_off, max_time=max_time)
+    system.save_separate(
+        (data_dir / f"data_{index}").absolute().__str__(), step, time_cut_off=time_cut_off, max_time=max_time
+    )
 
     # df = system.get_avalanche_data()
     # bins, _ = np.histogramdd((df["size"], df["time"], df["reach"]), bins=[*edges])
@@ -288,11 +314,9 @@ def get_avalanche_hist_3d(df: pd.DataFrame):
     parameter = "size time reach".split()
     edges = []
     for p in parameter:
-        edges.append(np.array(range(
-            np.floor(df[p]).min().astype(int),
-            np.ceil(df[p]).max().astype(int) + 1)) - 0.5)
+        edges.append(np.array(range(np.floor(df[p]).min().astype(int), np.ceil(df[p]).max().astype(int) + 1)) - 0.5)
 
-    bins, _ = np.histogramdd((df["size"], df["time"], df["reach"]), bins=[*edges])
+    bins, _ = np.histogramdd((df["size"], df["time"], df["reach"]), bins=[*edges], density=True)
     for i in range(3):
         edges[i] = 0.5 * (edges[i][1:] + edges[i][:-1])
 
@@ -305,11 +329,7 @@ def generate_3d_distribution_from_data_sample(data_dir: str | pathlib.Path, samp
         data_dir = pathlib.Path(data_dir)
 
     centers, bins = get_avalanche_hist_3d(df)
-    np.savez_compressed(data_dir / "distribution.npz",
-                        size=centers[0],
-                        time=centers[1],
-                        reach=centers[2],
-                        bins=bins)
+    np.savez_compressed(data_dir / "distribution.npz", size=centers[0], time=centers[1], reach=centers[2], bins=bins)
 
 
 def load_3d_dist(data_dir: str | pathlib.Path):
