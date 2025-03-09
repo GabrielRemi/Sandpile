@@ -62,71 +62,18 @@ def calculate_scaling_exponent(
     return unc.ufloat(m, m_err), unc.ufloat(n, n_err)
 
 
-# def get_conditional_expectation(x_sample: typing.Sequence, y_sample: typing.Sequence, **kwargs):
-#     x, y, joint_dist = get_2d_hist(x_sample, y_sample, **kwargs)
-
-#     _, y_dist = get_hist(y_sample)
-
-#     ind = y_dist > 0
-#     y = y[ind]
-
-#     e = (joint_dist.transpose() * x).sum(axis=1)[ind] / y_dist[ind]
-
-#     return y, e
+def expo(x, m: unc.core.Variable, n: unc.core.Variable):
+    return np.exp(n.nominal_value) * x**m.nominal_value
 
 
-# TODO Change this to new
-# def calculate_all_scaling_exponents(
-#     data: pd.DataFrame, limits: list[tuple[float | int | None, float | int | None]]
-# ) -> tuple[pd.DataFrame, list[unc.core.AffineScalarFunc]]:
-#     exponents: list[unc.core.Variable] = []
-#     amplitudes: list[unc.core.AffineScalarFunc] = []
+def plot_scaling_exponents(
+    s: NDArray, t: NDArray, r: NDArray, bins, axs: tp.Any, limits: list[tuple[float | None, float | None]] | None = None
+) -> pd.DataFrame | None:
+    """Plot the scaling exponents for a given distribution and fit the exponents, only if limits are given."""
 
-#     df = data
-#     # scaling of distributions
-#     for i, obs in enumerate("size time reach".split()):
-#         x, y = get_hist(df[obs])  # type: ignore
-#         lower, upper = limits[i]
-#         exponent, amp = calculate_scaling_exponent(x, y, lower_limit=lower, upper_limit=upper)
-#         exponents.append(exponent)
-#         amplitudes.append(np.e**amp)
+    if limits is not None and len(limits) != 9:
+        raise ValueError("Limits must be a list of 9 tuples")
 
-#     # scaling of expectation values
-#     comb = [
-#         "size time".split(),
-#         "time size".split(),
-#         "size reach".split(),
-#         "reach size".split(),
-#         "time reach".split(),
-#         "reach time".split(),
-#     ]
-#     for i, (x_obs, y_obs) in enumerate(comb):
-#         x, y = get_conditional_expectation(df[x_obs], df[y_obs])
-#         lower, upper = limits[i + 3]
-#         exponent, amp = calculate_scaling_exponent(x, y, lower_limit=lower, upper_limit=upper)
-#         exponents.append(exponent)
-#         amplitudes.append(np.e**amp)
-
-#     return (
-#         pd.DataFrame(
-#             {
-#                 "tau": unc.ufloat(1, 0) - exponents[0],
-#                 "alpha": unc.ufloat(1, 0) - exponents[1],
-#                 "lambda": unc.ufloat(1, 0) - exponents[2],
-#                 "gamma1": exponents[3],
-#                 "1/gamma1": exponents[4],
-#                 "gamma2": exponents[5],
-#                 "1/gamma2": exponents[6],
-#                 "gamma3": exponents[7],
-#                 "1/gamma3": exponents[8],
-#             },
-#             index=[0],
-#         ),
-#         amplitudes,
-#     )
-
-
-def plot_scaling_exponents(s: NDArray, t: NDArray, r: NDArray, bins, axs: tp.Any):
     s_dist = bins.sum(axis=(1, 2))
     t_dist = bins.sum(axis=(0, 2))
     r_dist = bins.sum(axis=(0, 1))
@@ -157,32 +104,68 @@ def plot_scaling_exponents(s: NDArray, t: NDArray, r: NDArray, bins, axs: tp.Any
     axs[2, 2].set_ylabel("$E[R | T=t]$")
     axs[2, 2].set_xlabel("$t$")
 
+    ind_t = t_dist > 0
+    ind_s = s_dist > 0
+    ind_r = r_dist > 0
+
     # E(S | T=t)
-    ind = t_dist > 0
-    est = (bins.sum(axis=2) * s.reshape(len(s), 1)).sum(axis=0)[ind] / t_dist[ind]
-    draw_distribution(t[ind], est, axis=axs[1, 0])
+    est = (bins.sum(axis=2) * s.reshape(len(s), 1)).sum(axis=0)[ind_t] / t_dist[ind_t]
+    draw_distribution(t[ind_t], est, axis=axs[1, 0])
 
     # E[T | S=s]
-    ind = s_dist > 0
-    ets = (bins.sum(axis=2) * t).sum(axis=1)[ind] / s_dist[ind]
-    draw_distribution(s[ind], ets, axis=axs[1, 1])
+    ets = (bins.sum(axis=2) * t).sum(axis=1)[ind_s] / s_dist[ind_s]
+    draw_distribution(s[ind_s], ets, axis=axs[1, 1])
 
     # E[S | R=r]
-    ind = r_dist > 0
-    esr = (bins.sum(axis=1) * s.reshape(len(s), 1)).sum(axis=0)[ind] / r_dist[ind]
-    draw_distribution(r[ind], esr, axis=axs[1, 2])
+    esr = (bins.sum(axis=1) * s.reshape(len(s), 1)).sum(axis=0)[ind_r] / r_dist[ind_r]
+    draw_distribution(r[ind_r], esr, axis=axs[1, 2])
 
     # E[R | S=s]
-    ind = s_dist > 0
-    ers = (bins.sum(axis=1) * r).sum(axis=1)[ind] / s_dist[ind]
-    draw_distribution(s[ind], ers, axis=axs[2, 0])
+    ers = (bins.sum(axis=1) * r).sum(axis=1)[ind_s] / s_dist[ind_s]
+    draw_distribution(s[ind_s], ers, axis=axs[2, 0])
 
     # E[T | R=r]
-    ind = r_dist > 0
-    etr = (bins.sum(axis=0) * t.reshape(len(t), 1)).sum(axis=0)[ind] / r_dist[ind]
-    draw_distribution(r[ind], etr, axis=axs[2, 1])
+    etr = (bins.sum(axis=0) * t.reshape(len(t), 1)).sum(axis=0)[ind_r] / r_dist[ind_r]
+    draw_distribution(r[ind_r], etr, axis=axs[2, 1])
 
     # E[R | T=t]
-    ind = t_dist > 0
-    ert = (bins.sum(axis=0) * r).sum(axis=1)[ind] / t_dist[ind]
-    draw_distribution(t[ind], ert, axis=axs[2, 2])
+    ert = (bins.sum(axis=0) * r).sum(axis=1)[ind_t] / t_dist[ind_t]
+    draw_distribution(t[ind_t], ert, axis=axs[2, 2])
+
+    if limits is None:
+        return
+    else:
+        s_m, s_n = calculate_scaling_exponent(s, s_dist, *limits[0])
+        t_m, t_n = calculate_scaling_exponent(t, t_dist, *limits[1])
+        r_m, r_n = calculate_scaling_exponent(r, r_dist, *limits[2])
+        st_m, st_n = calculate_scaling_exponent(t[ind_t], est, *limits[3])
+        ts_m, ts_n = calculate_scaling_exponent(s[ind_s], ets, *limits[4])
+        sr_m, sr_n = calculate_scaling_exponent(r[ind_r], esr, *limits[5])
+        rs_m, rs_n = calculate_scaling_exponent(s[ind_s], ers, *limits[6])
+        tr_m, tr_n = calculate_scaling_exponent(r[ind_r], etr, *limits[7])
+        rt_m, rt_n = calculate_scaling_exponent(t[ind_t], ert, *limits[8])
+
+        axs[0, 0].plot(s, expo(s, s_m, s_n))
+        axs[0, 1].plot(t, expo(t, t_m, t_n))
+        axs[0, 2].plot(r, expo(r, r_m, r_n))
+        axs[1, 0].plot(t[ind_t], expo(t[ind_t], st_m, st_n))
+        axs[1, 1].plot(s[ind_s], expo(s[ind_s], ts_m, ts_n))
+        axs[1, 2].plot(r[ind_r], expo(r[ind_r], sr_m, sr_n))
+        axs[2, 0].plot(s[ind_s], expo(s[ind_s], rs_m, rs_n))
+        axs[2, 1].plot(r[ind_r], expo(r[ind_r], tr_m, tr_n))
+        axs[2, 2].plot(t[ind_t], expo(t[ind_t], rt_m, rt_n))
+
+        return pd.DataFrame(
+            {
+                "tau": 1 - s_m,  # type: ignore
+                "alpha": 1 - t_m,  # type: ignore
+                "lambda": 1 - r_m,  # type: ignore
+                "gamma1": st_m,
+                "1/gamma1": ts_m,
+                "gamma2": sr_m,
+                "1/gamma2": rs_m,
+                "gamma3": tr_m,
+                "1/gamma3": rt_m,
+            },
+            index=[0],
+        )
