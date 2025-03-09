@@ -1,7 +1,7 @@
 from __future__ import annotations
 import numpy
 import typing
-__all__ = ['SystemMeta', 'get_critical_points', 'ravel_index']
+__all__ = ['SystemMeta', 'get_critical_points', 'ravel_index', 'unravel_index']
 class SystemMeta:
     closed_bounday: bool
     crit_slope: int
@@ -16,4 +16,6 @@ def get_critical_points(arg0: numpy.ndarray[numpy.int8], arg1: SystemMeta) -> li
 def get_critical_points(arg0: numpy.ndarray[numpy.int16], arg1: SystemMeta) -> list[numpy.ndarray[numpy.uint8]]:
     ...
 def ravel_index(arg0: numpy.ndarray[numpy.uint8], arg1: int) -> int:
+    ...
+def unravel_index(arg0: int, arg1: int, arg2: int) -> numpy.ndarray[numpy.uint8]:
     ...

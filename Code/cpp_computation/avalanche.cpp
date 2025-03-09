@@ -32,6 +32,20 @@ uint64_t ravel_index(py::array_t<uint8_t> multi_index, uint8_t grid)
     return result;
 }
 
+py::array_t<uint8_t> unravel_index(uint64_t index, uint8_t dim, uint8_t grid)
+{
+    py::array_t<uint8_t> result(dim);
+    auto buf = result.mutable_unchecked<1>();
+
+    for (ssize_t i = dim - 1; i >= 0; --i)
+    {
+        buf(i) = static_cast<uint8_t>(index % grid);
+        index = static_cast<uint64_t>(floor(index / grid));
+    }
+
+    return result;
+}
+
 template <typename T>
 std::vector<py::array_t<uint8_t>> get_critical_points(py::array_t<T>, SystemMeta &meta)
 {
@@ -46,6 +60,7 @@ std::vector<py::array_t<uint8_t>> get_critical_points(py::array_t<T>, SystemMeta
 PYBIND11_MODULE(avalanche, m)
 {
     m.def("ravel_index", &ravel_index);
+    m.def("unravel_index", &unravel_index);
     m.def("get_critical_points", &get_critical_points<int8_t>);
     m.def("get_critical_points", &get_critical_points<int16_t>);
 
