@@ -151,6 +151,7 @@ header = [
     r"$\gamma_3$",
     r"$(1/\gamma_3)^{{-1}}$",
 ]
+df_comp = df_comp.map(lambda x: "{:.2uS}".format(x) if isinstance(x, unc.core.AffineScalarFunc) else x)
 # header = [
 #     "Dimension",
 #     "Grid Size",
