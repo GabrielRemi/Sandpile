@@ -67,7 +67,13 @@ def expo(x, m: unc.core.Variable, n: unc.core.Variable):
 
 
 def plot_scaling_exponents(
-    s: NDArray, t: NDArray, r: NDArray, bins, axs: tp.Any, limits: list[tuple[float | None, float | None]] | None = None
+    s: NDArray,
+    t: NDArray,
+    r: NDArray,
+    bins,
+    axs: tp.Any,
+    limits: list[tuple[float | None, float | None]] | None = None,
+    do_plot: bool = True,
 ) -> pd.DataFrame | None:
     """Plot the scaling exponents for a given distribution and fit the exponents, only if limits are given."""
 
@@ -145,21 +151,22 @@ def plot_scaling_exponents(
         tr_m, tr_n = calculate_scaling_exponent(r[ind_r], etr, *limits[7])
         rt_m, rt_n = calculate_scaling_exponent(t[ind_t], ert, *limits[8])
 
-        axs[0, 0].plot(s, expo(s, s_m, s_n))
-        axs[0, 1].plot(t, expo(t, t_m, t_n))
-        axs[0, 2].plot(r, expo(r, r_m, r_n))
-        axs[1, 0].plot(t[ind_t], expo(t[ind_t], st_m, st_n))
-        axs[1, 1].plot(s[ind_s], expo(s[ind_s], ts_m, ts_n))
-        axs[1, 2].plot(r[ind_r], expo(r[ind_r], sr_m, sr_n))
-        axs[2, 0].plot(s[ind_s], expo(s[ind_s], rs_m, rs_n))
-        axs[2, 1].plot(r[ind_r], expo(r[ind_r], tr_m, tr_n))
-        axs[2, 2].plot(t[ind_t], expo(t[ind_t], rt_m, rt_n))
+        if do_plot:
+            axs[0, 0].plot(s, expo(s, s_m, s_n))
+            axs[0, 1].plot(t, expo(t, t_m, t_n))
+            axs[0, 2].plot(r, expo(r, r_m, r_n))
+            axs[1, 0].plot(t[ind_t], expo(t[ind_t], st_m, st_n))
+            axs[1, 1].plot(s[ind_s], expo(s[ind_s], ts_m, ts_n))
+            axs[1, 2].plot(r[ind_r], expo(r[ind_r], sr_m, sr_n))
+            axs[2, 0].plot(s[ind_s], expo(s[ind_s], rs_m, rs_n))
+            axs[2, 1].plot(r[ind_r], expo(r[ind_r], tr_m, tr_n))
+            axs[2, 2].plot(t[ind_t], expo(t[ind_t], rt_m, rt_n))
 
         return pd.DataFrame(
             {
-                "tau": 1 - s_m,  # type: ignore
-                "alpha": 1 - t_m,  # type: ignore
-                "lambda": 1 - r_m,  # type: ignore
+                "tau": unc.ufloat(1, 0) - s_m,  # type: ignore
+                "alpha": unc.ufloat(1, 0) - t_m,  # type: ignore
+                "lambda": unc.ufloat(1, 0) - r_m,  # type: ignore
                 "gamma1": st_m,
                 "1/gamma1": ts_m,
                 "gamma2": sr_m,

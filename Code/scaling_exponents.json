@@ -1,0 +1,77 @@
+[
+    {
+        "path": "data/d1_g20_c7_cl_nco",
+        "label": "dim 1 grid 20",
+        "limits": [
+            [null, 10],
+            [1, 10],
+            [null, 7],
+            [null, 6],
+            [null, 10],
+            [null, 8],
+            [null, 10],
+            [null, 7],
+            [null, 10]
+        ]
+    },
+    {
+        "path": "data/d2_g40_c7_cl_nco",
+        "limits": [
+            [ null, 70 ], 
+            [null, 100], 
+            [null, 15], 
+            [7, 100], 
+            [10, 80], 
+            [4, 11], 
+            [12, 140], 
+            [3, 12], 
+            [null, 70]
+        ],
+        "label": "dim 2 grid 40"
+    },
+    {
+        "path": "data/d3_g20_c7_cl_nco",
+        "label": "dim 3 grid 20",
+        "limits":[
+            [null, 200],
+            [null, 20],
+            [null, 10],
+            [6, 100],
+            [10, 500],
+            [null, 8],
+            [10, 400],
+            [null, 7],
+            [8, 50]
+        ]
+    },
+    {
+        "path": "data/d4_g15_c7_cl_nco",
+        "label": "dim 4 grid 15",
+        "limits": [
+            [null, 100],
+            [null, 30],
+            [null, 8],
+            [6, 60],
+            [10, 300],
+            [null, 7],
+            [12, 200],
+            [null, 8],
+            [10, 80]
+        ]
+    },
+    {
+        "path": "data/d5_g15_c7_cl_nco",
+        "label": "dim 5 grid 10",
+        "limits": [
+            [null, 100],
+            [null, 10],
+            [null, 5],
+            [7, 60],
+            [7, 120],
+            [null, 6],
+            [10, 120],
+            [null, 5],
+            [5, 50]
+        ]
+    }
+]
