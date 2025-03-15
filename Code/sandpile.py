@@ -1,26 +1,26 @@
+import json
 from copy import deepcopy
 from dataclasses import dataclass, field
 from multiprocessing import Pool
 from os import cpu_count, urandom
+from typing import Any
 
-from computation import relax_avalanche, get_total_dissipation_rate
+from computation import get_total_dissipation_rate, relax_avalanche
 from utils import *
-import json
-
 
 if is_notebook():
     from tqdm.notebook import tqdm
 else:
     from tqdm import tqdm
 
-import numpy as np
-from numpy.typing import NDArray
-import pandas as pd
 import gc
 
+import numpy as np
+import pandas as pd
+from numpy.typing import NDArray
 
 # Array: type = NDArray[np.int8]
-Array: type = NDArray[np.uint8] | NDArray[np.uint32]
+Array: typing.TypeAlias = NDArray[np.uint8] | NDArray[np.uint32]
 
 
 @dataclass
@@ -36,7 +36,7 @@ class SandpileND:
     _curr_slope: NDArray[np.uint8] = field(init=False, repr=False)
     average_slopes_list: list[float] = field(init=False, repr=False)
     average_slopes: Array = field(init=False, repr=False)
-    _avalanches: dict[str, int | float | Array] = field(init=False, repr=False, default_factory=dict)
+    _avalanches: dict[str, list[int | float | Array]] = field(init=False, repr=False, default_factory=dict)
     _perturb_func: typing.Callable[[Array, typing.Sequence[int]], None] = field(init=False, repr=False)
 
     @property
@@ -207,7 +207,7 @@ class SandpileND:
         run: bool = True,
         desc: str = "sample",
         **kwargs,
-    ) -> None | list[any]:
+    ) -> None | list[Any]:
         """
         Run multiple samples for that system in parallel so that a statistical average of the data
         can be calculated
@@ -228,11 +228,6 @@ class SandpileND:
 
         data_dir = pathlib.Path(folder_path) / system_desc
         data_dir = data_dir.resolve().absolute()
-        # edges = [
-        # np.array(range(0, 2001)) - 0.5,
-        # np.array(range(1, 251)) - 0.5,
-        # np.array(range(0, 251)) - 0.5
-        # ]
 
         pre_run_num = 0  # if data was simulated before, the number of samples before this
         if not data_dir.exists():
@@ -264,19 +259,18 @@ class SandpileND:
         ]
 
         # if run:
-        with Pool(cpu_count() - 2) as pool:
+        with Pool(cpu_count() or 3 - 2) as pool:
             list(tqdm(pool.imap_unordered(_process_args_list, tasks), total=sample_count, desc=system_desc))
 
-        # total_bin_values = np.sum(bins, axis=0)
-        # bin_centers = [0.5 * (x[1:] + x[:-1]) for x in edges]
-        # np.savez_compressed(data_dir / "distribution.npz", size=bin_centers[0], time=bin_centers[1],
-        #                     reach=bin_centers[2],
-        #                     bins=total_bin_values)
-        # else:
-        #     return [(_process, task) for task in tasks]
-        if kwargs.get("to_distribution", False):
+        if kwargs.get("to_distribution", True):
             generate_3d_distribution_from_data_sample(data_dir)
             for file in data_dir.glob("*.csv"):
+                file.unlink()
+
+        if kwargs.get("mean_power_spectrum", True):
+            power_spectrum = calculate_mean_power_spectrum(data_dir)
+            np.save(data_dir / "power_spectrum.npy", power_spectrum)
+            for file in data_dir.glob("power_spectrum_*.npy"):
                 file.unlink()
 
 
@@ -285,7 +279,7 @@ def _process(
     time_steps: int,
     start_cfg: Array,
     index: int,
-    data_dir,
+    data_dir: pathlib.Path,
     step: int,
     desc: str,
     time_cut_off: int = 0,
@@ -294,12 +288,20 @@ def _process(
     np.random.seed(int.from_bytes(urandom(4), "big"))
     system = deepcopy(system)
     system(time_steps, start_cfg, with_progress_bar=False)
-    system.save_separate(
-        (data_dir / f"data_{index}").absolute().__str__(), step, time_cut_off=time_cut_off, max_time=max_time
-    )
 
-    # df = system.get_avalanche_data()
-    # bins, _ = np.histogramdd((df["size"], df["time"], df["reach"]), bins=[*edges])
+    # Save the data for the first run only, because the data is only interesting for showcasing.
+    path = (data_dir / f"data_{index}").absolute().__str__()
+    df = system.get_avalanche_data().query(f"time_step > {time_cut_off}")
+    if index == 0:
+        system.save_separate(path, step, time_cut_off, max_time)
+    else:
+        df["size time reach".split()].to_csv(path + ".avalanche.csv", index=False)
+
+    # calculate power spectrum with max_time // 2 + 1 entries
+    tdr = get_total_dissipation_rate(list(df["dissipation_rate"]), max_time)
+    power_spectrum = np.fft.rfft(tdr).__abs__() ** 2
+    np.save(data_dir / f"power_spectrum_{index}.npy", power_spectrum)
+
     del system
     gc.collect()
 
@@ -308,6 +310,17 @@ def _process(
 
 def _process_args_list(args):
     return _process(*args)
+
+
+def calculate_mean_power_spectrum(data_dir: str | pathlib.Path):
+    data_dir = pathlib.Path(data_dir)
+    n = len(np.load(data_dir / "power_spectrum_0.npy"))
+
+    power_spectrum = np.zeros(n)
+    for file in data_dir.glob("*power_spectrum_*.npy"):
+        power_spectrum += np.load(file)
+
+    return power_spectrum / len(list(data_dir.glob("power_spectrum_*.npy")))
 
 
 def get_avalanche_hist_3d(df: pd.DataFrame):
