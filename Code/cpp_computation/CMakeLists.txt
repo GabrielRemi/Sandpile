@@ -29,6 +29,7 @@ execute_process(
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 file(GLOB TEST_FILES "tests/*.cpp")
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 foreach(test_file ${TEST_FILES})
     get_filename_component(test_name ${test_file} NAME_WE)

@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstdint>
+// #include <avalanche.cpp>
 
 uint32_t factorial(uint32_t number)
 {

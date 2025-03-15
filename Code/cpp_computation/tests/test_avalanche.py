@@ -17,11 +17,6 @@ def setup_ravel_index():
                 raise e
 
 
-@pytest.mark.benchmark
-def test_ravel_index(benchmark: Any):
-    benchmark(setup_ravel_index)
-
-
 def setup_unravel_index():
     for dim in range(1, 8):
         for grid in range(1, 201, 10):
@@ -31,15 +26,10 @@ def setup_unravel_index():
             assert np.all(out == np.unravel_index(index, shape=shape))
 
 
-@pytest.mark.benchmark
-def test_unravel_index(benchmark: Any):
-    benchmark(setup_unravel_index)
-
-
 def setup_get_critical_points():
-    np.random.seed(0)
-    crit_amount = 3
-    c_slope = np.random.randint(1, 10)
+    # np.random.seed(0)
+    crit_amount = 6
+    c_slope = 7
     grid = 10
     for dim in [1, 2, 3, 4, 5, 6]:
         system = SystemMeta(dim, grid, c_slope, False)
@@ -63,11 +53,6 @@ def setup_get_critical_points():
             print("critical points", critical_points)
             print("output", out)
             raise e
-
-
-@pytest.mark.benchmark
-def test_get_critical_points(benchmark: Any):
-    benchmark(setup_get_critical_points)
 
 
 def __cl_bound_system_relax(cfg, position_index, grid_size) -> None:
@@ -111,7 +96,7 @@ def __op_bound_system_relax(cfg, position_index, grid_size) -> None:
 
 
 def setup_cl_bound_system_relax():
-    np.random.seed(0)
+    # np.random.seed(0)
 
     c_slope = 3
     for grid in [10]:
@@ -128,7 +113,7 @@ def setup_cl_bound_system_relax():
 
 
 def setup_op_bound_system_relax():
-    np.random.seed(0)
+    # np.random.seed(0)
 
     c_slope = 3
     for grid in [10]:
@@ -144,6 +129,101 @@ def setup_op_bound_system_relax():
             assert np.all(cfg == __cfg)
 
 
+def __get_critical_points(cfg, critical_slope, dim, grid_size):
+
+    points = np.asarray(np.nonzero(cfg > critical_slope)).swapaxes(0, 1).astype(np.uint64)
+    return [unravel_index(p[0], dim, grid_size) for p in points]
+
+
+def __relax_avalanche(time_step, start_cfg, start_point, system):
+    dim, grid, critical_slope, closed = system
+    dissipation_rate = []
+    size, time, reach = 0, 0, 0.0
+
+    max_step = 5_000
+    i = 0
+    if closed:
+        relax = __cl_bound_system_relax
+    else:
+        relax = __op_bound_system_relax
+
+    for i in range(max_step):
+        critical_points = __get_critical_points(start_cfg, critical_slope, dim, grid)
+        if len(critical_points) == 0:
+            break
+
+        size += len(critical_points)
+        time += 1
+        dissipation_rate.append(len(critical_points))
+
+        # max_distance = np.max([np.sqrt(((_p - start_point) ** 2).sum()) for _p in critical_points])
+        max_distance = np.max(
+            [np.sqrt(((_p.astype(np.float64) - start_point.astype(np.float64)) ** 2).sum()) for _p in critical_points]
+        )
+        reach = max(max_distance, reach)
+
+        np.random.shuffle(critical_points)
+        for critical_point in critical_points:
+            relax(start_cfg, critical_point, grid)
+
+    if i == (max_step - 1):
+        raise Exception("Max number of step iterations reached.")
+
+    return (time_step, size, time, reach), np.array(dissipation_rate, dtype=np.uint8)
+
+
+def setup_relax_avalanche():
+    np.random.seed(0)
+    c_slope = 7
+    grid = 6
+    b = True
+    for b in [True, False]:
+        i = 5
+        b = False
+        for dim in range(i, i + 1):
+            system = SystemMeta(dim, grid, c_slope, b)
+            cfg = np.random.randint(0, c_slope + 1, size=[grid] * dim, dtype=np.int8)
+            crit = np.random.randint(0, grid, size=dim, dtype=np.uint8)
+            cfg[*crit] = c_slope + 1
+
+            cfg1 = cfg.copy()
+            out1, dis1 = __relax_avalanche(0, cfg1.reshape(-1), crit, (dim, grid, c_slope, b))
+            cfg2 = cfg.copy()
+            out2 = relax_avalanche(0, cfg2.reshape(-1), crit, system)
+            out2, dis2 = (out2.time_step, out2.size, out2.time, out2.reach), out2.dissipation_rate
+
+            try:
+                for x, y in zip(out1, out2):
+                    assert np.all(x == y)
+
+                assert np.all(dis1 == dis2)
+                assert np.all(cfg1 == cfg2)
+            except Exception as e:
+                print("out1", out1)
+                print("out2", out2)
+                print("dis1", dis1)
+                print("dis2", dis2)
+                # print("cfg before", cfg)
+                # print("cfg1", cfg1)
+                # print("cfg2", cfg2)
+                raise e
+
+
+@pytest.mark.benchmark
+def test_ravel_index(benchmark: Any):
+    benchmark(setup_ravel_index)
+
+
+@pytest.mark.benchmark
+def test_unravel_index(benchmark: Any):
+    benchmark(setup_unravel_index)
+
+
+@pytest.mark.benchmark
+def test_get_critical_points(benchmark: Any):
+    benchmark(setup_get_critical_points)
+
+
 @pytest.mark.benchmark
 def test_cl_bound_system_relax(benchmark: Any):
     benchmark(setup_cl_bound_system_relax)
@@ -152,3 +232,8 @@ def test_cl_bound_system_relax(benchmark: Any):
 @pytest.mark.benchmark
 def test_op_bound_system_relax(benchmark: Any):
     benchmark(setup_op_bound_system_relax)
+
+
+# @pytest.mark.benchmark
+# def test_relax_avalanche(benchmark: Any):
+#     benchmark(setup_relax_avalanche)
