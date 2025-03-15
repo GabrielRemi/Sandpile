@@ -47,14 +47,24 @@ py::array_t<uint8_t> unravel_index(uint64_t index, uint8_t dim, uint8_t grid)
 }
 
 template <typename T>
-std::vector<py::array_t<uint8_t>> get_critical_points(py::array_t<T>, SystemMeta &meta)
+// py::array_t<py::array_t<uint8_t>> get_critical_points(py::array_t<T> cfg, SystemMeta &meta)
+std::vector<py::array_t<uint8_t>> get_critical_points(py::array_t<T> cfg, SystemMeta &meta)
 {
-    std::vector<py::array_t<uint8_t>> points;
-    points.push_back(py::array_t<uint8_t>({1, 2, 3}));
+    std::vector<py::array_t<uint8_t>> points(0);
+    auto buf = cfg.template unchecked<1>();
 
-    // TODO stuff
+    for (ssize_t i = 0; i < buf.shape(0); ++i)
+    {
+        auto slope = buf(i);
+        if (static_cast<uint32_t>(slope) > static_cast<uint32_t>(meta.crit_slope))
+        {
+            std::cout << i << std::endl;
+            points.push_back(unravel_index(static_cast<uint64_t>(i), meta.dim, meta.grid));
+        }
+    }
 
     return points;
+    // TODO do not make a copy of the vector
 }
 
 PYBIND11_MODULE(avalanche, m)

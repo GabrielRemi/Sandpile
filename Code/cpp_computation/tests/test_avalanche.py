@@ -37,12 +37,32 @@ def test_unravel_index(benchmark: Any):
 
 
 def setup_get_critical_points():
-    system = SystemMeta(1, 4, 3, True)
-    x = np.array([1, 4, 2, 4], dtype=np.int8)
-    out = get_critical_points(x, system)
-    res = [np.array([x], dtype=np.uint8) for x in [1, 3]]
-    assert len(res) == len(out)
-    assert np.all(out == res)
+    np.random.seed(0)
+    crit_amount = 3
+    c_slope = np.random.randint(1, 10)
+    grid = 10
+    for dim in [1, 2, 3, 4, 5, 6]:
+        system = SystemMeta(dim, grid, c_slope, False)
+        cfg = np.random.randint(0, c_slope, size=[grid] * dim, dtype=np.int8)
+        # crit_amount = np.random.randint(0, grid**dim)
+        critical_points = np.random.randint(0, grid, size=[crit_amount, dim], dtype=np.uint8)
+        _, indices = np.unique(critical_points, axis=0, return_index=True)
+        critical_points = critical_points[np.sort(indices)]
+
+        for point in critical_points:
+            cfg[tuple(point)] = c_slope + 1
+        out = get_critical_points(cfg.reshape(-1), system)
+        out = np.asarray(out)
+        out = np.sort(out, axis=0)
+        critical_points = np.sort(critical_points, axis=0)
+        try:
+            assert np.all(out == critical_points)
+        except Exception as e:
+            print(f"c_slope {c_slope}, dim {dim}, grid {grid}")
+            print("cfg", cfg)
+            print("critical points", critical_points)
+            print("output", out)
+            raise e
 
 
 @pytest.mark.benchmark
