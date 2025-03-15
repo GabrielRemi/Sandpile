@@ -66,3 +66,110 @@ def setup_get_critical_points():
 @pytest.mark.benchmark
 def test_get_critical_points_pythran(benchmark: Any):
     benchmark(setup_get_critical_points)
+
+
+def __cl_bound_system_relax(cfg, position_index, grid_size) -> None:
+    """
+    Relax the system by using open boundary conditions. The 'left' borders are always closed.
+
+    :param cfg: configuration to relax.
+    :param position_index: position of the relaxation process.
+    :param grid_size: linear size of the grid
+    """
+    if np.any(position_index == 0) or np.any(position_index == (grid_size - 1)):
+        cfg[ravel_index(position_index, grid_size)] = 0
+        return
+    dim = len(position_index)
+    # if cfg.dtype == np.int16:
+    #     dim = np.int16(len(position_index))
+    # elif cfg.dtype == np.int8:
+    #     dim = np.int8(len(position_index))
+
+    cfg[ravel_index(position_index, grid_size)] -= 2 * dim
+
+    for dimension, single_index in enumerate(position_index):
+        shifted_position_index = position_index.copy()
+
+        shifted_position_index[dimension] -= 1
+        cfg[ravel_index(shifted_position_index, grid_size)] += 1
+
+        shifted_position_index[dimension] += 2
+        cfg[ravel_index(shifted_position_index, grid_size)] += 1
+
+
+def __op_bound_system_relax(cfg, position_index, grid_size) -> None:
+    """
+    Relax the system by using open boundary conditions. The 'left' borders are always closed.
+
+    :param cfg: configuration to relax.
+    :param position_index: position of the relaxation process.
+    :param grid_size: linear size of the grid
+    """
+    dim = len(position_index)
+    # if cfg.dtype == np.int16:
+    #     dim = np.int16(len(position_index))
+    # elif cfg.dtype == np.int8:
+    #     dim = np.int8(len(position_index))
+
+    if np.any(position_index == 0):
+        cfg[ravel_index(position_index, grid_size)] = 0
+        return
+
+    boundary_indices = np.nonzero(position_index == (grid_size - 1))[0]
+    # return cfg[to_flattened_index(position_index, grid_size)]
+    cfg[ravel_index(position_index, grid_size)] += -2 * dim + len(boundary_indices)
+
+    for dimension, single_index in enumerate(position_index):
+        shifted_position_index = position_index.copy()
+
+        shifted_position_index[dimension] -= 1
+
+        cfg[ravel_index(shifted_position_index, grid_size)] += 1
+
+        if single_index < (grid_size - 1):
+            shifted_position_index[dimension] += 2
+            cfg[ravel_index(shifted_position_index, grid_size)] += 1
+
+
+def setup_cl_bound_system_relax():
+    np.random.seed(0)
+
+    c_slope = 3
+    for grid in [10]:
+        for dim in range(1, 7):
+            cfg = np.random.randint(0, c_slope, size=[grid] * dim, dtype=np.int8)
+            crit = np.random.randint(0, grid, size=dim, dtype=np.uint8)
+            cfg[*crit] = c_slope + 1
+
+            __cfg = cfg.copy()
+            __cl_bound_system_relax(__cfg.reshape(-1), crit, grid)
+
+            cl_bound_system_relax(cfg.reshape(-1), crit, grid)
+            assert np.all(cfg == __cfg)
+
+
+def setup_op_bound_system_relax():
+    np.random.seed(0)
+
+    c_slope = 3
+    for grid in [10]:
+        for dim in range(1, 7):
+            cfg = np.random.randint(0, c_slope, size=[grid] * dim, dtype=np.int8)
+            crit = np.random.randint(0, grid, size=dim, dtype=np.uint8)
+            cfg[*crit] = c_slope + 1
+
+            __cfg = cfg.copy()
+            __op_bound_system_relax(__cfg.reshape(-1), crit, grid)
+
+            op_bound_system_relax(cfg.reshape(-1), crit, grid)
+            assert np.all(cfg == __cfg)
+
+
+@pytest.mark.benchmark
+def test_cl_bound_system_relax_pythran(benchmark: Any):
+    benchmark(setup_cl_bound_system_relax)
+
+
+@pytest.mark.benchmark
+def test_op_bound_system_relax_pythran(benchmark: Any):
+    benchmark(setup_op_bound_system_relax)

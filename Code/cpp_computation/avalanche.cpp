@@ -17,7 +17,7 @@ struct SystemMeta
     SystemMeta(uint8_t _d, uint8_t _g, uint8_t _c, uint8_t _b) : dim(_d), grid(_g), crit_slope(_c), closed_boundary(_b) {}
 };
 
-uint64_t ravel_index(py::array_t<uint8_t> multi_index, uint8_t grid)
+uint64_t ravel_index(py::array_t<uint8_t> &multi_index, uint8_t grid)
 {
     uint64_t result = 0, curr_pow = 0;
 
@@ -48,7 +48,7 @@ py::array_t<uint8_t> unravel_index(uint64_t index, uint8_t dim, uint8_t grid)
 
 template <typename T>
 // py::array_t<py::array_t<uint8_t>> get_critical_points(py::array_t<T> cfg, SystemMeta &meta)
-std::vector<py::array_t<uint8_t>> get_critical_points(py::array_t<T> cfg, SystemMeta &meta)
+std::vector<py::array_t<uint8_t>> get_critical_points(py::array_t<T> &cfg, SystemMeta &meta)
 {
     std::vector<py::array_t<uint8_t>> points(0);
     auto buf = cfg.template unchecked<1>();
@@ -67,12 +67,87 @@ std::vector<py::array_t<uint8_t>> get_critical_points(py::array_t<T> cfg, System
     // TODO do not make a copy of the vector
 }
 
+template <typename T>
+void op_bound_system_relax(py::array_t<T> &cfg, py::array_t<uint8_t> &position_index, uint8_t grid)
+{
+    auto cfg_buf = cfg.template mutable_unchecked<1>();
+
+    auto pos_buf = position_index.mutable_unchecked<1>();
+    T dim = static_cast<T>(pos_buf.shape(0));
+
+    T boundary_indices = 0;
+    for (ssize_t i = 0; i < dim; ++i)
+    {
+        if (pos_buf(i) == 0)
+        {
+            cfg_buf(ravel_index(position_index, grid)) = 0;
+            return;
+        }
+        else if (pos_buf(i) == grid - 1)
+        {
+            ++boundary_indices;
+        }
+    }
+
+    cfg_buf(ravel_index(position_index, grid)) += static_cast<T>(-2 * dim + boundary_indices);
+
+    for (ssize_t i = 0; i < dim; ++i)
+    {
+        pos_buf(i) -= 1;
+        cfg_buf(ravel_index(position_index, grid)) += 1;
+
+        pos_buf(i) += 1;
+        if (pos_buf(i) < (grid - 1))
+        {
+            pos_buf(i) += 1;
+            cfg_buf(ravel_index(position_index, grid)) += 1;
+            pos_buf(i) -= 1;
+        }
+    }
+}
+
+template <typename T>
+void cl_bound_system_relax(py::array_t<T> &cfg, py::array_t<uint8_t> &position_index, uint8_t grid)
+{
+
+    auto cfg_buf = cfg.template mutable_unchecked<1>();
+
+    auto pos_buf = position_index.mutable_unchecked<1>();
+    T dim = static_cast<T>(pos_buf.shape(0));
+
+    T boundary_indices = 0;
+    for (ssize_t i = 0; i < dim; ++i)
+    {
+        if (pos_buf(i) == 0 || pos_buf(i) == grid - 1)
+        {
+            cfg_buf(ravel_index(position_index, grid)) = 0;
+            return;
+        }
+    }
+
+    cfg_buf(ravel_index(position_index, grid)) += static_cast<T>(-2 * dim);
+    for (ssize_t i = 0; i < dim; ++i)
+    {
+        pos_buf(i) -= 1;
+        cfg_buf(ravel_index(position_index, grid)) += 1;
+
+        pos_buf(i) += 2;
+        cfg_buf(ravel_index(position_index, grid)) += 1;
+
+        pos_buf(i) -= 1;
+    }
+}
+
 PYBIND11_MODULE(avalanche, m)
 {
     m.def("ravel_index", &ravel_index);
     m.def("unravel_index", &unravel_index);
     m.def("get_critical_points", &get_critical_points<int8_t>);
     m.def("get_critical_points", &get_critical_points<int16_t>);
+    m.def("op_bound_system_relax", &op_bound_system_relax<int8_t>);
+    m.def("op_bound_system_relax", &op_bound_system_relax<int16_t>);
+    m.def("cl_bound_system_relax", &cl_bound_system_relax<int8_t>);
+    m.def("cl_bound_system_relax", &cl_bound_system_relax<int16_t>);
 
     py::class_<SystemMeta>(m, "SystemMeta")
         .def(py::init<uint8_t, uint8_t, uint8_t, bool>())
