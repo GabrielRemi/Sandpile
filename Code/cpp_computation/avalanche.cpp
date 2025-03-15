@@ -5,7 +5,8 @@
 #include <functional>
 #include <print>
 #include <iostream>
-#include <fstream>
+// #include <fstream>
+#include <string>
 
 namespace py = pybind11;
 
@@ -25,7 +26,7 @@ struct AvalancheData
     uint32_t size;
     uint32_t time;
     double reach;
-    py::array_t<uint8_t> dissipation_rate;
+    py::array_t<uint16_t> dissipation_rate;
 
     AvalancheData(uint32_t _t) : time_step(_t)
     {
@@ -36,6 +37,20 @@ struct AvalancheData
     }
 };
 
+template <typename T>
+std::string format_array(py::array_t<T> &arr)
+{
+    auto buf = arr.template unchecked<1>();
+    std::string result = "";
+    for (ssize_t i = 0; i < (buf.shape(0) - 1); ++i)
+    {
+        result += std::format("{} ", buf(i));
+    }
+    result += std::format("{}", buf(buf.shape(0) - 1));
+
+    return result;
+}
+
 uint64_t ravel_index(py::array_t<uint8_t> &multi_index, uint8_t grid)
 {
     uint64_t result = 0, curr_pow = 0;
@@ -44,7 +59,6 @@ uint64_t ravel_index(py::array_t<uint8_t> &multi_index, uint8_t grid)
     for (ssize_t i = buf.shape(0) - 1; i >= 0; --i)
     {
         result += static_cast<uint64_t>(buf(i)) * static_cast<uint64_t>(std::pow(static_cast<uint64_t>(grid), curr_pow));
-        // result += buf(i) * std::pow(grid, curr_pow);
         curr_pow += 1;
     }
 
@@ -74,7 +88,7 @@ std::vector<py::array_t<uint8_t>> get_critical_points(py::array_t<T> &cfg, Syste
     for (ssize_t i = 0; i < buf.shape(0); ++i)
     {
         auto slope = buf(i);
-        if (static_cast<uint32_t>(slope) > static_cast<uint32_t>(meta.crit_slope))
+        if (static_cast<int16_t>(slope) > static_cast<int16_t>(meta.crit_slope))
         {
             points.push_back(unravel_index(static_cast<uint64_t>(i), meta.dim, meta.grid));
         }
@@ -159,11 +173,12 @@ template <typename T>
 AvalancheData relax_avalanche(uint32_t time_step, py::array_t<T> &start_cfg, py::array_t<uint8_t> &start_point,
                               SystemMeta &system)
 {
-    std::vector<uint8_t> dissipation_rate(0);
+    std::vector<uint16_t> dissipation_rate(0);
+    // dissipation_rate.reserve(500);
     AvalancheData avalanche(time_step);
-    auto file = std::ofstream("data.log");
+    // auto file = std::ofstream("data.log");
 
-    int max_step = 500;
+    int max_step = 5000;
     int i = 0;
     std::function<void(py::array_t<T> &, py::array_t<uint8_t> &, uint8_t)> relax;
 
@@ -184,18 +199,18 @@ AvalancheData relax_avalanche(uint32_t time_step, py::array_t<T> &start_cfg, py:
             break;
         }
         // printing
-        file << std::format("iteration [{}], number of points [{}]", i, critical_points.size()) << std::endl;
+        // file << std::format("iteration [{}], number of points [{}]", i, critical_points.size()) << std::endl;
 
         avalanche.size += static_cast<uint32_t>(critical_points.size());
         avalanche.time += 1;
-        dissipation_rate.push_back(static_cast<uint8_t>(critical_points.size()));
+        dissipation_rate.push_back(static_cast<uint16_t>(critical_points.size()));
 
         for (auto &critical_point : critical_points)
         {
             // printing
-            auto cfg_buf = start_cfg.template unchecked<1>();
-            auto index = ravel_index(critical_point, system.grid);
-            file << std::format("[{}] value: {}", index, static_cast<int>(cfg_buf(index))) << std::endl;
+            // auto cfg_buf = start_cfg.template unchecked<1>();
+            // auto index = ravel_index(critical_point, system.grid);
+            // file << std::format("[{}] [{}] value: {}", index, format_array(critical_point), static_cast<int>(cfg_buf(index))) << std::endl;
 
             auto buf = critical_point.template unchecked<1>();
             auto start_buf = start_point.unchecked<1>();
@@ -214,19 +229,18 @@ AvalancheData relax_avalanche(uint32_t time_step, py::array_t<T> &start_cfg, py:
         //     relax(start_cfg, critical_points[i], system.grid);
         //     // break;
         // }
-        if (i == 4)
-        {
-            break;
-        }
+        // if (i == 10)
+        // {
+        //     break;
+        // }
     }
 
     if (i == (max_step - 1))
     {
         throw std::runtime_error("Max number of step iterations reached");
-        file << "Error!!!" << std::endl;
     }
 
-    avalanche.dissipation_rate = py::array_t<uint8_t>(dissipation_rate.size(), dissipation_rate.data());
+    avalanche.dissipation_rate = py::array_t<uint16_t>(dissipation_rate.size(), dissipation_rate.data());
     return avalanche;
 }
 

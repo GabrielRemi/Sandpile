@@ -3,7 +3,7 @@ import numpy
 import typing
 __all__ = ['AvalancheData', 'SystemMeta', 'cl_bound_system_relax', 'get_critical_points', 'op_bound_system_relax', 'ravel_index', 'relax_avalanche', 'unravel_index']
 class AvalancheData:
-    dissipation_rate: numpy.ndarray[numpy.uint8]
+    dissipation_rate: numpy.ndarray[numpy.uint16]
     reach: float
     size: int
     time: int

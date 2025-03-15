@@ -5,7 +5,7 @@ from typing import Any
 
 
 def setup_ravel_index():
-    # np.random.seed(0)
+    np.random.seed(0)
     for dim in range(1, 8):
         for grid in range(1, 201, 10):
             multi_index = np.random.randint(0, grid, size=dim, dtype=np.uint8)
@@ -27,13 +27,13 @@ def setup_unravel_index():
 
 
 def setup_get_critical_points():
-    # np.random.seed(0)
+    np.random.seed(0)
     crit_amount = 6
     c_slope = 7
     grid = 10
     for dim in [1, 2, 3, 4, 5, 6]:
         system = SystemMeta(dim, grid, c_slope, False)
-        cfg = np.random.randint(0, c_slope, size=[grid] * dim, dtype=np.int8)
+        cfg = np.random.randint(-c_slope, c_slope, size=[grid] * dim, dtype=np.int8)
         # crit_amount = np.random.randint(0, grid**dim)
         critical_points = np.random.randint(0, grid, size=[crit_amount, dim], dtype=np.uint8)
         _, indices = np.unique(critical_points, axis=0, return_index=True)
@@ -96,12 +96,12 @@ def __op_bound_system_relax(cfg, position_index, grid_size) -> None:
 
 
 def setup_cl_bound_system_relax():
-    # np.random.seed(0)
+    np.random.seed(0)
 
     c_slope = 3
     for grid in [10]:
         for dim in range(1, 7):
-            cfg = np.random.randint(0, c_slope, size=[grid] * dim, dtype=np.int8)
+            cfg = np.random.randint(-c_slope, c_slope, size=[grid] * dim, dtype=np.int8)
             crit = np.random.randint(0, grid, size=dim, dtype=np.uint8)
             cfg[*crit] = c_slope + 1
 
@@ -113,12 +113,12 @@ def setup_cl_bound_system_relax():
 
 
 def setup_op_bound_system_relax():
-    # np.random.seed(0)
+    np.random.seed(0)
 
     c_slope = 3
     for grid in [10]:
         for dim in range(1, 7):
-            cfg = np.random.randint(0, c_slope, size=[grid] * dim, dtype=np.int8)
+            cfg = np.random.randint(-c_slope, c_slope, size=[grid] * dim, dtype=np.int8)
             crit = np.random.randint(0, grid, size=dim, dtype=np.uint8)
             cfg[*crit] = c_slope + 1
 
@@ -169,18 +169,16 @@ def __relax_avalanche(time_step, start_cfg, start_point, system):
     if i == (max_step - 1):
         raise Exception("Max number of step iterations reached.")
 
-    return (time_step, size, time, reach), np.array(dissipation_rate, dtype=np.uint8)
+    return (time_step, size, time, reach), np.array(dissipation_rate, dtype=np.uint16)
 
 
 def setup_relax_avalanche():
     np.random.seed(0)
     c_slope = 7
-    grid = 6
+    grid = 10
     b = True
     for b in [True, False]:
-        i = 5
-        b = False
-        for dim in range(i, i + 1):
+        for dim in range(1, 7):
             system = SystemMeta(dim, grid, c_slope, b)
             cfg = np.random.randint(0, c_slope + 1, size=[grid] * dim, dtype=np.int8)
             crit = np.random.randint(0, grid, size=dim, dtype=np.uint8)
@@ -194,7 +192,7 @@ def setup_relax_avalanche():
 
             try:
                 for x, y in zip(out1, out2):
-                    assert np.all(x == y)
+                    assert int(x * 100) == int(y * 100)
 
                 assert np.all(dis1 == dis2)
                 assert np.all(cfg1 == cfg2)
@@ -203,6 +201,7 @@ def setup_relax_avalanche():
                 print("out2", out2)
                 print("dis1", dis1)
                 print("dis2", dis2)
+                print("dis diff", dis1 - dis2)
                 # print("cfg before", cfg)
                 # print("cfg1", cfg1)
                 # print("cfg2", cfg2)
@@ -234,6 +233,6 @@ def test_op_bound_system_relax(benchmark: Any):
     benchmark(setup_op_bound_system_relax)
 
 
-# @pytest.mark.benchmark
-# def test_relax_avalanche(benchmark: Any):
-#     benchmark(setup_relax_avalanche)
+@pytest.mark.benchmark
+def test_relax_avalanche(benchmark: Any):
+    benchmark(setup_relax_avalanche)

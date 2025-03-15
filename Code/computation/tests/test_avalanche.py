@@ -5,7 +5,7 @@ from typing import Any
 
 
 def setup_ravel_index():
-    # np.random.seed(0)
+    np.random.seed(0)
     for dim in range(1, 8):
         for grid in range(1, 201, 10):
             multi_index = np.random.randint(0, grid, size=dim, dtype=np.uint8)
@@ -42,7 +42,7 @@ def setup_get_critical_points():
     c_slope = np.random.randint(1, 10)
     grid = 10
     for dim in [1, 2, 3, 4, 5, 6]:
-        cfg = np.random.randint(0, c_slope, size=[grid] * dim, dtype=np.int8)
+        cfg = np.random.randint(-c_slope, c_slope, size=[grid] * dim, dtype=np.int8)
         # crit_amount = np.random.randint(0, grid**dim)
         critical_points = np.random.randint(0, grid, size=[crit_amount, dim], dtype=np.uint8)
         _, indices = np.unique(critical_points, axis=0, return_index=True)
@@ -137,7 +137,7 @@ def setup_cl_bound_system_relax():
     c_slope = 3
     for grid in [10]:
         for dim in range(1, 7):
-            cfg = np.random.randint(0, c_slope, size=[grid] * dim, dtype=np.int8)
+            cfg = np.random.randint(-c_slope, c_slope, size=[grid] * dim, dtype=np.int8)
             crit = np.random.randint(0, grid, size=dim, dtype=np.uint8)
             cfg[*crit] = c_slope + 1
 
@@ -154,7 +154,7 @@ def setup_op_bound_system_relax():
     c_slope = 3
     for grid in [10]:
         for dim in range(1, 7):
-            cfg = np.random.randint(0, c_slope, size=[grid] * dim, dtype=np.int8)
+            cfg = np.random.randint(-c_slope, c_slope, size=[grid] * dim, dtype=np.int8)
             crit = np.random.randint(0, grid, size=dim, dtype=np.uint8)
             cfg[*crit] = c_slope + 1
 
