@@ -49,21 +49,21 @@ set(PYTHON_PACKAGE_DIR "/home/gabriel/miniconda3/lib/python3.12/site-packages")
 set(PYBIND11_FINDPYTHON ON)
 set(CMAKE_PREFIX_PATH "~/miniconda3/lib/python3.12/site-packages/pybind11/share/cmake/pybind11")
 find_package(pybind11 CONFIG REQUIRED)
-pybind11_add_module(avalanche avalanche.cpp)
-set_target_properties(avalanche PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+pybind11_add_module(sandpile sandpile.cpp)
+set_target_properties(sandpile PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_custom_command(
-    TARGET avalanche POST_BUILD
+    TARGET sandpile POST_BUILD
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/avalanche${PYTHON_EXTENSION_SUFFIX} ${PYTHON_PACKAGE_DIR}/avalanche${PYTHON_EXTENSION_SUFFIX}
-    COMMAND pybind11-stubgen avalanche -o .
-    COMMAND rm ${PYTHON_PACKAGE_DIR}/avalanche${PYTHON_EXTENSION_SUFFIX}
+    COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/sandpile${PYTHON_EXTENSION_SUFFIX} ${PYTHON_PACKAGE_DIR}/sandpile${PYTHON_EXTENSION_SUFFIX}
+    COMMAND pybind11-stubgen sandpile -o .
+    COMMAND rm ${PYTHON_PACKAGE_DIR}/sandpile${PYTHON_EXTENSION_SUFFIX}
 )
 
 # add_custom_target(pytest ALL
 # COMMAND pytest ${CMAKE_CURRENT_SOURCE_DIR}/..
 # )
-install(TARGETS avalanche DESTINATION ${PYTHON_PACKAGE_DIR})
+install(TARGETS sandpile DESTINATION ${PYTHON_PACKAGE_DIR})
 
 # install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} DESTINATION ${PYTHON_PACKAGE_DIR} FILES_MATCHING PATTERN "*.so")
 set(${CMAKE_CURRENT_SOURCE_DIR})

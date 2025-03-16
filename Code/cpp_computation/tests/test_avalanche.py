@@ -1,4 +1,4 @@
-from ..avalanche import *
+from ..sandpile import *
 import numpy as np
 import pytest
 from typing import Any
@@ -32,7 +32,7 @@ def setup_get_critical_points():
     c_slope = 7
     grid = 10
     for dim in [1, 2, 3, 4, 5, 6]:
-        system = SystemMeta(dim, grid, c_slope, False)
+        system = Sandpile(dim, grid, c_slope, False, False)
         cfg = np.random.randint(-c_slope, c_slope, size=[grid] * dim, dtype=np.int8)
         # crit_amount = np.random.randint(0, grid**dim)
         critical_points = np.random.randint(0, grid, size=[crit_amount, dim], dtype=np.uint8)
@@ -179,7 +179,7 @@ def setup_relax_avalanche():
     b = True
     for b in [True, False]:
         for dim in range(1, 7):
-            system = SystemMeta(dim, grid, c_slope, b)
+            system = Sandpile(dim, grid, c_slope, b, True)
             cfg = np.random.randint(0, c_slope + 1, size=[grid] * dim, dtype=np.int8)
             crit = np.random.randint(0, grid, size=dim, dtype=np.uint8)
             cfg[*crit] = c_slope + 1

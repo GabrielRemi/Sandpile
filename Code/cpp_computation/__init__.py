@@ -1,1 +1,1 @@
-from cpp_computation.avalanche import *
+from cpp_computation.sandpile import *
