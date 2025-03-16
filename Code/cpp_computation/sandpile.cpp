@@ -90,6 +90,11 @@ py::array_t<uint8_t> unravel_index(uint64_t index, uint8_t dim, uint8_t grid) {
     return result;
 }
 
+uint64_t shift_ravelled_index(uint64_t index, uint8_t dim, uint8_t grid, int16_t shift, uint8_t shift_dim) {
+    return static_cast<uint64_t>(static_cast<int16_t>(index) +
+                                 shift * static_cast<int16_t>(pow(grid, dim - shift_dim - 1)));
+}
+
 template <typename T> std::vector<py::array_t<uint8_t>> get_critical_points(py::array_t<T> &cfg, Sandpile<T> &system) {
     std::vector<py::array_t<uint8_t>> points(0);
     auto buf = cfg.template unchecked<1>();
@@ -222,7 +227,7 @@ void Sandpile<T>::initialize_system(uint32_t time_steps, std::optional<py::array
 
     // specific seed for testing
     std::random_device rd;
-    this->_gen = std::mt19937(0);
+    this->_gen = std::mt19937(rd());
     this->_dist = std::uniform_int_distribution<uint8_t>(0, this->grid - 1);
 
     if (conservative_perturbation) {
@@ -305,10 +310,10 @@ template <typename T> void Sandpile<T>::_step(std::optional<py::array_t<uint8_t>
 }
 template <typename T> void Sandpile<T>::simulate(uint32_t time_steps, std::optional<py::array_t<T>> start_cfg) {
     this->initialize_system(time_steps, start_cfg);
-    auto file = std::ofstream("data.log");
+    // auto file = std::ofstream("data.log");
     for (uint32_t i = 0; i < time_steps; ++i) {
         this->_step(start_cfg);
-        file << format_array(this->current_cfg) << std::endl;
+        // file << format_array(this->current_cfg) << std::endl;
     }
 
     this->average_slopes.shrink_to_fit();

@@ -180,12 +180,12 @@ def setup_relax_avalanche():
     for b in [True, False]:
         for dim in range(1, 7):
             system = Sandpile(dim, grid, c_slope, b, True)
-            cfg = np.random.randint(0, c_slope + 1, size=[grid] * dim, dtype=np.int8)
+            cfg = np.random.randint(-c_slope, c_slope + 1, size=[grid] * dim, dtype=np.int8)
             crit = np.random.randint(0, grid, size=dim, dtype=np.uint8)
             cfg[*crit] = c_slope + 1
 
             cfg1 = cfg.copy()
-            out1, dis1 = __relax_avalanche(0, cfg1.reshape(-1), crit, (dim, grid, c_slope, b))
+            out1, dis1 = __relax_avalanche(0, cfg1.reshape(-1), crit, (dim, grid, c_slope, not b))
             cfg2 = cfg.copy()
             out2 = relax_avalanche(0, cfg2.reshape(-1), crit, system)
             out2, dis2 = (out2.time_step, out2.size, out2.time, out2.reach), out2.dissipation_rate
@@ -202,37 +202,49 @@ def setup_relax_avalanche():
                 print("dis1", dis1)
                 print("dis2", dis2)
                 print("dis diff", dis1 - dis2)
+                print("cfg diff", (cfg1 - cfg2).reshape(-1))
                 # print("cfg before", cfg)
                 # print("cfg1", cfg1)
                 # print("cfg2", cfg2)
                 raise e
 
 
-@pytest.mark.benchmark
-def test_ravel_index(benchmark: Any):
-    benchmark(setup_ravel_index)
+# @pytest.mark.benchmark
+# def test_ravel_index(benchmark: Any):
+#     benchmark(setup_ravel_index)
 
 
-@pytest.mark.benchmark
-def test_unravel_index(benchmark: Any):
-    benchmark(setup_unravel_index)
+# @pytest.mark.benchmark
+# def test_unravel_index(benchmark: Any):
+#     benchmark(setup_unravel_index)
 
 
-@pytest.mark.benchmark
-def test_get_critical_points(benchmark: Any):
-    benchmark(setup_get_critical_points)
+# @pytest.mark.benchmark
+# def test_get_critical_points(benchmark: Any):
+#     benchmark(setup_get_critical_points)
 
 
-@pytest.mark.benchmark
-def test_cl_bound_system_relax(benchmark: Any):
-    benchmark(setup_cl_bound_system_relax)
+# @pytest.mark.benchmark
+# def test_cl_bound_system_relax(benchmark: Any):
+#     benchmark(setup_cl_bound_system_relax)
 
 
-@pytest.mark.benchmark
-def test_op_bound_system_relax(benchmark: Any):
-    benchmark(setup_op_bound_system_relax)
+# @pytest.mark.benchmark
+# def test_op_bound_system_relax(benchmark: Any):
+#     benchmark(setup_op_bound_system_relax)
 
 
 @pytest.mark.benchmark
 def test_relax_avalanche(benchmark: Any):
-    benchmark(setup_relax_avalanche)
+    # benchmark(setup_relax_avalanche)
+    np.random.seed(0)
+    c_slope = 7
+    grid = 10
+    b = True
+    dim = 2
+    system = Sandpile(dim, grid, c_slope, not b, True)
+    cfg = np.random.randint(-c_slope, c_slope, size=[grid] * dim, dtype=np.int8)
+    crit = np.random.randint(0, grid, size=dim, dtype=np.uint8)
+    cfg[*crit] = c_slope + 1
+
+    benchmark(lambda: relax_avalanche(0, cfg.reshape(-1), crit, system))

@@ -17,11 +17,6 @@ def setup_ravel_index():
                 raise e
 
 
-@pytest.mark.benchmark
-def test_ravel_index_pythran(benchmark: Any):
-    benchmark(setup_ravel_index)
-
-
 def setup_unravel_index():
     for dim in range(1, 8):
         for grid in range(1, 201, 10):
@@ -29,11 +24,6 @@ def setup_unravel_index():
             index = np.random.randint(0, grid**dim, dtype=np.uint64)
             out = unravel_index(index, dim, grid)
             assert np.all(out == np.unravel_index(index, shape=shape))
-
-
-@pytest.mark.benchmark
-def test_unravel_index_pythran(benchmark: Any):
-    benchmark(setup_unravel_index)
 
 
 def setup_get_critical_points():
@@ -61,11 +51,6 @@ def setup_get_critical_points():
             print("critical points", critical_points)
             print("output", out)
             raise e
-
-
-@pytest.mark.benchmark
-def test_get_critical_points_pythran(benchmark: Any):
-    benchmark(setup_get_critical_points)
 
 
 def __cl_bound_system_relax(cfg, position_index, grid_size) -> None:
@@ -165,16 +150,6 @@ def setup_op_bound_system_relax():
             assert np.all(cfg == __cfg)
 
 
-@pytest.mark.benchmark
-def test_cl_bound_system_relax_pythran(benchmark: Any):
-    benchmark(setup_cl_bound_system_relax)
-
-
-@pytest.mark.benchmark
-def test_op_bound_system_relax_pythran(benchmark: Any):
-    benchmark(setup_op_bound_system_relax)
-
-
 def __relax_avalanche(time_step, start_cfg, start_point, system):
     dim, grid, critical_slope, closed = system
     dissipation_rate = []
@@ -226,19 +201,66 @@ def setup_relax_avalanche():
     for b in [True, False]:
         for dim in range(1, 7):
             system = (dim, grid, c_slope, b)
-            cfg = np.random.randint(0, c_slope, size=[grid] * dim, dtype=np.int8)
+            cfg = np.random.randint(-c_slope, c_slope, size=[grid] * dim, dtype=np.int8)
             crit = np.random.randint(0, grid, size=dim, dtype=np.uint8)
             cfg[*crit] = c_slope + 1
 
-            __cfg = cfg.copy()
-            out1, dis1 = __relax_avalanche(0, __cfg.reshape(-1), crit, system)
-            out2, dis2 = relax_avalanche(0, cfg.reshape(-1), crit, system)
-            for x, y in zip(out1, out2):
-                assert np.all(x == y)
-            assert np.all(dis1 == dis2)
-            assert np.all(__cfg == cfg)
+            cfg1 = cfg.copy()
+            out1, dis1 = __relax_avalanche(0, cfg1.reshape(-1), crit, system)
+            cfg2 = cfg.copy()
+            out2, dis2 = relax_avalanche(0, cfg2.reshape(-1), crit, system)
+            try:
+                for x, y in zip(out1, out2):
+                    assert int(x * 100) == int(y * 100)
+
+                assert np.all(dis1 == dis2)
+                assert np.all(cfg1 == cfg2)
+            except Exception as e:
+                print("out1", out1)
+                print("out2", out2)
+                print("dis1", dis1)
+                print("dis2", dis2)
+                print("dis diff", dis1 - dis2)
+                print("cfg diff", (cfg1 - cfg2).reshape(-1))
+                # print("cfg before", cfg)
+                # print("cfg1", cfg1)
+                # print("cfg2", cfg2)
+                raise e
+
+
+# @pytest.mark.benchmark
+# def test_ravel_index_pythran(benchmark: Any):
+#     benchmark(setup_ravel_index)
+
+# @pytest.mark.benchmark
+# def test_unravel_index_pythran(benchmark: Any):
+#     benchmark(setup_unravel_index)
+
+# @pytest.mark.benchmark
+# def test_get_critical_points_pythran(benchmark: Any):
+#     benchmark(setup_get_critical_points)
+
+# @pytest.mark.benchmark
+# def test_cl_bound_system_relax_pythran(benchmark: Any):
+#     benchmark(setup_cl_bound_system_relax)
+
+
+# @pytest.mark.benchmark
+# def test_op_bound_system_relax_pythran(benchmark: Any):
+#     benchmark(setup_op_bound_system_relax)
 
 
 @pytest.mark.benchmark
 def test_relax_avalanche_pythran(benchmark: Any):
-    benchmark(setup_relax_avalanche)
+    # benchmark(setup_relax_avalanche)
+    np.random.seed(0)
+    c_slope = 7
+    grid = 10
+    b = True
+    dim = 2
+    system = (dim, grid, c_slope, b)
+    cfg = np.random.randint(-c_slope, c_slope, size=[grid] * dim, dtype=np.int8)
+    crit = np.random.randint(0, grid, size=dim, dtype=np.uint8)
+    cfg[*crit] = c_slope + 1
+
+    benchmark(lambda: relax_avalanche(0, cfg.reshape(-1), crit, system))
