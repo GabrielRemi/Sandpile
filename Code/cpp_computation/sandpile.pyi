@@ -13,6 +13,7 @@ class AvalancheData:
 class Sandpile:
     average_slopes: list[float]
     closed_boundary: bool
+    conservative_perturbation: bool
     crit_slope: int
     dim: int
     grid: int
@@ -22,7 +23,7 @@ class Sandpile:
     @typing.overload
     def __init__(self, arg0: int, arg1: int, arg2: int, arg3: bool, arg4: bool) -> None:
         ...
-    def simulate(self, arg0: int, arg1: numpy.ndarray[numpy.uint8] | None) -> None:
+    def simulate(self, arg0: int, arg1: numpy.ndarray[numpy.int8] | None) -> None:
         ...
 @typing.overload
 def cl_bound_system_relax(arg0: numpy.ndarray[numpy.int8], arg1: numpy.ndarray[numpy.uint8], arg2: int) -> None:

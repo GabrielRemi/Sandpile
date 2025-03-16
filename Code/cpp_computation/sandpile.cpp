@@ -2,11 +2,12 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 // #include <cmath>
+#include <fstream>
 #include <functional>
 #include <iostream>
-#include <print>
-// #include <fstream>
 #include <optional>
+#include <print>
+#include <random>
 #include <string>
 
 namespace py = pybind11;
@@ -31,6 +32,9 @@ template <typename T> struct Sandpile {
     std::vector<AvalancheData> _avalanches;
     void _perturb_conservative(py::array_t<T> cfg, py::array_t<uint8_t> position);
     void _perturb_non_conservative(py::array_t<T> cfg, py::array_t<uint8_t> position);
+    void _step(std::optional<py::array_t<uint8_t>> perturb_position);
+    std::mt19937 _gen;
+    std::uniform_int_distribution<uint8_t> _dist;
 
   public:
     uint8_t dim;
@@ -38,7 +42,7 @@ template <typename T> struct Sandpile {
     uint8_t crit_slope;
     bool open_boundary = true;
     bool conservative_perturbation = true;
-    py::array_t<T> start_cfg;
+    py::array_t<T> current_cfg;
     std::vector<double> average_slopes;
 
     Sandpile(uint8_t _d, uint8_t _g, uint8_t _c) : dim(_d), grid(_g), crit_slope(_c) {}
@@ -47,7 +51,6 @@ template <typename T> struct Sandpile {
 
     uint32_t size() { return static_cast<uint32_t>(pow(grid, dim)); }
     void initialize_system(uint32_t time_steps, std::optional<py::array_t<T>> start_cfg);
-    void step(std::optional<py::array_t<uint8_t>> perturb_position);
     void simulate(uint32_t time_steps, std::optional<py::array_t<T>> start_cfg);
 };
 
@@ -168,16 +171,15 @@ AvalancheData relax_avalanche(uint32_t time_step, py::array_t<T> &start_cfg, py:
     std::vector<uint16_t> dissipation_rate(0);
     // dissipation_rate.reserve(500);
     AvalancheData avalanche(time_step);
-    // auto file = std::ofstream("data.log");
 
     int max_step = 5000;
     int i = 0;
     std::function<void(py::array_t<T> &, py::array_t<uint8_t> &, uint8_t)> relax;
 
     if (system.open_boundary) {
-        relax = cl_bound_system_relax<T>;
-    } else {
         relax = op_bound_system_relax<T>;
+    } else {
+        relax = cl_bound_system_relax<T>;
     }
 
     for (i = 0; i < max_step; ++i) {
@@ -185,19 +187,12 @@ AvalancheData relax_avalanche(uint32_t time_step, py::array_t<T> &start_cfg, py:
         if (critical_points.size() == 0) {
             break;
         }
-        // printing
-        // file << std::format("iteration [{}], number of points [{}]", i, critical_points.size()) << std::endl;
 
         avalanche.size += static_cast<uint32_t>(critical_points.size());
         avalanche.time += 1;
         dissipation_rate.push_back(static_cast<uint16_t>(critical_points.size()));
 
         for (auto &critical_point : critical_points) {
-            // printing
-            // auto cfg_buf = start_cfg.template unchecked<1>();
-            // auto index = ravel_index(critical_point, system.grid);
-            // file << std::format("[{}] [{}] value: {}", index, format_array(critical_point),
-            // static_cast<int>(cfg_buf(index))) << std::endl;
 
             auto buf = critical_point.template unchecked<1>();
             auto start_buf = start_point.unchecked<1>();
@@ -210,15 +205,6 @@ AvalancheData relax_avalanche(uint32_t time_step, py::array_t<T> &start_cfg, py:
 
             relax(start_cfg, critical_point, system.grid);
         }
-        // for (long unsigned int i = 0; i < critical_points.size(); ++i)
-        // {
-        //     relax(start_cfg, critical_points[i], system.grid);
-        //     // break;
-        // }
-        // if (i == 10)
-        // {
-        //     break;
-        // }
     }
 
     if (i == (max_step - 1)) {
@@ -231,31 +217,102 @@ AvalancheData relax_avalanche(uint32_t time_step, py::array_t<T> &start_cfg, py:
 
 template <typename T>
 void Sandpile<T>::initialize_system(uint32_t time_steps, std::optional<py::array_t<T>> start_cfg) {
+    this->average_slopes.clear();
+    this->_avalanches.clear();
+
+    // specific seed for testing
+    std::random_device rd;
+    this->_gen = std::mt19937(0);
+    this->_dist = std::uniform_int_distribution<uint8_t>(0, this->grid - 1);
+
     if (conservative_perturbation) {
         _perturb_func = [this](py::array_t<T> cfg, py::array_t<uint8_t> position) {
             return this->_perturb_conservative(cfg, position);
         };
     } else {
         _perturb_func = [this](py::array_t<T> cfg, py::array_t<uint8_t> position) {
-            return this->_perturb_conservative(cfg, position);
+            return this->_perturb_non_conservative(cfg, position);
         };
-
-        if (!start_cfg) {
-            this->start_cfg = py::array_t<T>(this->size());
-            auto buf = this->start_cfg.template mutable_unchecked<1>();
-            for (ssize_t i = 0; i < buf.shape(0); ++i) {
-                buf(i) = 0;
-            }
+    }
+    if (!start_cfg) {
+        this->current_cfg = py::array_t<T>(this->size());
+        auto buf = this->current_cfg.template mutable_unchecked<1>();
+        for (ssize_t i = 0; i < buf.shape(0); ++i) {
+            buf(i) = 0;
         }
+    } else {
+        this->current_cfg = start_cfg.value();
+    }
 
-        this->average_slopes.reserve(time_steps);
-        this->_avalanches.reserve(time_steps / 2);
+    this->average_slopes.reserve(time_steps);
+    double average_slope = 0.;
+    auto buf = this->current_cfg.template unchecked<1>();
+    for (ssize_t i = 0; i < buf.shape(0); ++i) {
+        average_slope += static_cast<double>(buf(i));
+    }
+    average_slope /= static_cast<double>(buf.shape(0));
+    this->average_slopes.push_back(average_slope);
+    this->_avalanches.reserve(time_steps / 2);
+}
+template <typename T> void Sandpile<T>::_perturb_conservative(py::array_t<T> cfg, py::array_t<uint8_t> position) {
+    auto cfg_buf = cfg.template mutable_unchecked<1>();
+
+    cfg_buf(ravel_index(position, this->grid)) += static_cast<T>(this->dim);
+
+    auto pos_buf = position.mutable_unchecked<1>();
+    for (ssize_t i = 0; i < pos_buf.shape(0); ++i) {
+        if (pos_buf(i) == 0) {
+            continue;
+        }
+        pos_buf(i) -= 1;
+        cfg_buf(ravel_index(position, this->grid)) -= 1;
+        pos_buf(i) += 1;
     }
 }
-template <typename T> void Sandpile<T>::_perturb_conservative(py::array_t<T> cfg, py::array_t<uint8_t> position) {}
-template <typename T> void Sandpile<T>::_perturb_non_conservative(py::array_t<T> cfg, py::array_t<uint8_t> position) {}
+template <typename T> void Sandpile<T>::_perturb_non_conservative(py::array_t<T> cfg, py::array_t<uint8_t> position) {
+    auto cfg_buf = cfg.template mutable_unchecked<1>();
+
+    cfg_buf(ravel_index(position, this->grid)) += static_cast<T>(this->dim);
+}
+template <typename T> void Sandpile<T>::_step(std::optional<py::array_t<uint8_t>> perturb_position) {
+    // Generate randum perturbation position
+    if (!perturb_position) {
+        perturb_position = py::array_t<uint8_t>(this->dim);
+        auto buf = perturb_position.value().mutable_unchecked<1>();
+        for (ssize_t i = 0; i < buf.shape(0); ++i) {
+            buf(i) = this->_dist(this->_gen);
+        }
+    }
+
+    // Perturb the system and calculate the average slope
+    _perturb_func(this->current_cfg, perturb_position.value());
+    double average_slope = 0.;
+    auto buf = this->current_cfg.template unchecked<1>();
+    for (ssize_t i = 0; i < buf.shape(0); ++i) {
+        average_slope += static_cast<double>(buf(i));
+    }
+    average_slope /= static_cast<double>(buf.shape(0));
+    this->average_slopes.push_back(average_slope);
+
+    // Relax the system
+    auto cfg_buf = this->current_cfg.template unchecked<1>();
+    if (cfg_buf(ravel_index(perturb_position.value(), this->grid)) > this->crit_slope) {
+        auto avalanche = relax_avalanche(static_cast<uint32_t>(this->average_slopes.size() - 1), this->current_cfg,
+                                         perturb_position.value(), *this);
+
+        this->_avalanches.push_back(avalanche);
+    }
+}
 template <typename T> void Sandpile<T>::simulate(uint32_t time_steps, std::optional<py::array_t<T>> start_cfg) {
     this->initialize_system(time_steps, start_cfg);
+    auto file = std::ofstream("data.log");
+    for (uint32_t i = 0; i < time_steps; ++i) {
+        this->_step(start_cfg);
+        file << format_array(this->current_cfg) << std::endl;
+    }
+
+    this->average_slopes.shrink_to_fit();
+    this->_avalanches.shrink_to_fit();
 }
 
 template <typename T> void bind_sandpile(py::module_ &m) {
@@ -266,6 +323,7 @@ template <typename T> void bind_sandpile(py::module_ &m) {
         .def_readwrite("grid", &Sandpile<T>::grid)
         .def_readwrite("crit_slope", &Sandpile<T>::crit_slope)
         .def_readwrite("closed_boundary", &Sandpile<T>::open_boundary)
+        .def_readwrite("conservative_perturbation", &Sandpile<T>::conservative_perturbation)
         .def_readwrite("average_slopes", &Sandpile<T>::average_slopes)
         .def("simulate", &Sandpile<T>::simulate);
 }
@@ -290,7 +348,7 @@ PYBIND11_MODULE(sandpile, m) {
     //     .def_readwrite("crit_slope", &Sandpile<uint8_t>::crit_slope)
     //     .def_readwrite("closed_boundary", &Sandpile<uint8_t>::open_boundary)
     //     .def("simulate", &Sandpile<uint8_t>::simulate);
-    bind_sandpile<uint8_t>(m);
+    bind_sandpile<int8_t>(m);
     // bind_sandpile<uint16_t>(m);
 
     // Only for testing purposes. It is not going to be used on the python side
