@@ -245,19 +245,19 @@ def setup_relax_avalanche():
 #     benchmark(setup_cl_bound_system_relax)
 
 
-# @pytest.mark.benchmark
-# def test_op_bound_system_relax_pythran(benchmark: Any):
-#     benchmark(setup_op_bound_system_relax)
+@pytest.mark.benchmark
+def test_op_bound_system_relax_pythran(benchmark: Any):
+    benchmark(setup_op_bound_system_relax)
 
 
 @pytest.mark.benchmark
 def test_relax_avalanche_pythran(benchmark: Any):
     # benchmark(setup_relax_avalanche)
-    np.random.seed(0)
+    # np.random.seed(0)
     c_slope = 7
     grid = 10
     b = True
-    dim = 2
+    dim = 3
     system = (dim, grid, c_slope, b)
     cfg = np.random.randint(-c_slope, c_slope, size=[grid] * dim, dtype=np.int8)
     crit = np.random.randint(0, grid, size=dim, dtype=np.uint8)
