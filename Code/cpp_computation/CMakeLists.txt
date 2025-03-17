@@ -19,8 +19,11 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 add_compile_options(-Wall -Wextra -Wconversion -Wfatal-errors -Wno-unused-variable)
 add_compile_options(-Wno-unused-parameter)
 #add_compile_options(-O3 -march=native -DNDEBUG)
+#if (CMAKE_BUILD_TYPE STREQUAL Debug)
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
-message("Debug: ${CMAKE_BUILD_TYPE}")
+#elseif(CMAKE_BUILD_TYPE STREQUAL Release)
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+#message("Debug: ${CMAKE_BUILD_TYPE}")
 
 # add_compile_options(-fdiagnostics-color=always)
 

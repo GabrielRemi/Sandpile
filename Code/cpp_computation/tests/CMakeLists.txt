@@ -17,14 +17,14 @@ foreach(test_file ${TEST_FILES})
     add_executable(${test_name} ${test_file})
     target_link_libraries(${test_name} PRIVATE Catch2::Catch2WithMain)
     add_test(${test_name} ${test_name})
-    catch_discover_tests(${test_name})
+#    catch_discover_tests(${test_name})
 
-    add_custom_command(
-            TARGET ${test_name}
-            POST_BUILD
-            WORKING_DIRECTORY ${CMAKE_BUILD_DIR}
-            COMMAND ctest -V -R ${test_name}
-    )
+#    add_custom_command(
+#            TARGET ${test_name}
+#            POST_BUILD
+#            WORKING_DIRECTORY ${CMAKE_BUILD_DIR}
+#            COMMAND ctest -V -R ${test_name}
+#    )
 endforeach()
 
 
