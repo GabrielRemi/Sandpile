@@ -2,15 +2,16 @@
 #include <pybind11/eigen.h>
 #include <pybind11/stl.h>
 #include <pybind11/options.h>
+#include <string>
 
 #include <sandpile.hpp>
 
 namespace py = pybind11;
 
 template <typename T>
-void bind_sandpile(py::module_& m)
+void bind_sandpile(py::module_& m, const std::string name)
 {
-    py::class_<Sandpile<T>>(m, "Sandpile")
+    py::class_<Sandpile<T>>(m, name.c_str())
         .def(py::init<uint8_t, uint8_t, uint8_t>(),
              py::arg("dim"),
              py::arg("grid"),
@@ -61,6 +62,13 @@ you start a manual simulation with the `step()` function.
 :param start_cfg: Initial configuration of the system.
 :param seed: Random seed for reproducibility.
 )")
+        .def("step", &Sandpile<T>::step,
+             py::arg("perturb_position") = std::nullopt,
+             R"(
+Make one perturbation step of the system.
+
+:param perturb_position: The position of the perturbation. If not specified, perturb the system at random.
+)")
         .def("simulate", &Sandpile<T>::simulate,
              py::arg("time_steps"),
              py::arg("start_cfg") = std::nullopt,
@@ -90,5 +98,8 @@ PYBIND11_MODULE(sandpile, m)
     //     .def_readwrite("time", &AvalancheData::time)
     //     .def_readwrite("reach", &AvalancheData::reach)
     //     .def_readwrite("dissipation_rate", &AvalancheData::dissipation_rate);
-    bind_sandpile<int8_t>(m);
+    bind_sandpile<int8_t>(m, "Sandpile8Bit");
+    // bind_sandpile<int8_t>(m, "Sandpile");
+    bind_sandpile<int16_t>(m, "Sandpile16Bit");
+    // bind_sandpile<int32_t>(m, "Sandpile32Bit");
 }

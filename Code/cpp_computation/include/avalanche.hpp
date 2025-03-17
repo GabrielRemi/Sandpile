@@ -1,19 +1,17 @@
 #pragma once
-#include <Eigen/Dense>
+#include <Eigen/Core>
 
 template <typename T>
 using vector = Eigen::VectorX<T>;
-// template <typename T> using vector = Eigen::Matrix<T, Eigen::Dynamic, 1>;
 
 struct AvalancheData
 {
-    uint32_t time_step;
     uint32_t size;
     uint32_t time;
     double reach;
     std::vector<uint16_t> dissipation_rate;
 
-    explicit AvalancheData(const uint32_t _t) : time_step(_t)
+    explicit AvalancheData()
     {
         size = 0;
         time = 0;
@@ -86,7 +84,7 @@ std::vector<vector<uint8_t>> get_critical_points(vector<T>& cfg, const uint8_t d
 template <typename T>
 void op_bound_system_relax(vector<T>& cfg, vector<uint8_t>& position_index, const uint8_t grid)
 {
-    T dim = static_cast<T>(position_index.size());
+    const auto dim = static_cast<uint8_t>(position_index.size());
     auto raveled_index = ravel_index(position_index, grid);
 
     T boundary_indices = 0;
@@ -119,13 +117,13 @@ void op_bound_system_relax(vector<T>& cfg, vector<uint8_t>& position_index, cons
 template <typename T>
 void cl_bound_system_relax(vector<T>& cfg, vector<uint8_t>& position_index, const uint8_t grid)
 {
-    T dim = static_cast<T>(position_index.size());
+    const auto dim = static_cast<uint8_t>(position_index.size());
 
     T boundary_indices = 0;
     auto ravelled_index = ravel_index(position_index, grid);
     for (ssize_t i = 0; i < dim; ++i)
     {
-        if (position_index(i) == 0 || position_index(i) == grid - 1)
+        if (position_index(i) == 0 || position_index(i) == (grid - 1))
         {
             cfg(ravelled_index) = 0;
             return;

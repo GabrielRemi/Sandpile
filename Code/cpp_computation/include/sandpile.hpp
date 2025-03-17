@@ -11,9 +11,8 @@ private:
     std::function<void(vector<T>&, vector<uint8_t>&)> _relax_func;
     std::vector<AvalancheData> _avalanches;
     std::vector<double> _average_slopes;
-    void _perturb_conservative(vector<T>& cfg, vector<uint8_t>& position);
-    void _perturb_non_conservative(vector<T>& cfg, vector<uint8_t>& position);
-    void _step(std::optional<vector<uint8_t>> perturb_position);
+    void _perturb_conservative(vector<T>& cfg, const vector<uint8_t>& position);
+    void _perturb_non_conservative(vector<T>& cfg, const vector<uint8_t>& position);
     AvalancheData _relax_avalanche(uint32_t time_step, vector<T>& start_cfg, vector<uint8_t>& start_point);
     std::mt19937 _gen;
     std::uniform_int_distribution<uint8_t> _dist;
@@ -24,6 +23,7 @@ public:
     uint8_t dim;
     uint8_t grid;
     uint8_t crit_slope;
+
     vector<double> get_average_slopes()
     {
         vector<double> average_slopes(this->_average_slopes.size());
@@ -31,6 +31,7 @@ public:
 
         return average_slopes;
     }
+
     bool get_has_open_boundary() const { return _has_open_boundary; }
     bool get_has_conservative_perturbation() const { return _has_conservative_perturbation; }
     vector<T> current_cfg;
@@ -48,6 +49,7 @@ public:
 
     uint32_t size() const { return static_cast<uint32_t>(pow(grid, dim)); }
     void initialize_system(uint32_t time_steps, std::optional<vector<T>> start_cfg, std::optional<int> seed);
+    void step(std::optional<vector<uint8_t>> perturb_position);
     void simulate(uint32_t time_steps, std::optional<vector<T>> start_cfg, std::optional<int> seed);
 };
 

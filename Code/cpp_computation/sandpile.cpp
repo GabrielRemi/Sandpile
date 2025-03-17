@@ -20,14 +20,14 @@ void Sandpile<T>::initialize_system(const uint32_t time_steps, std::optional<vec
 
     if (this->_has_conservative_perturbation)
     {
-        _perturb_func = [this](vector<T>& cfg, vector<uint8_t>& position)
+        _perturb_func = [this](vector<T>& cfg, const vector<uint8_t>& position)
         {
             return this->_perturb_conservative(cfg, position);
         };
     }
     else
     {
-        _perturb_func = [this](vector<T>& cfg, vector<uint8_t>& position)
+        _perturb_func = [this](vector<T>& cfg, const vector<uint8_t>& position)
         {
             return this->_perturb_non_conservative(cfg, position);
         };
@@ -68,24 +68,14 @@ void Sandpile<T>::initialize_system(const uint32_t time_steps, std::optional<vec
     this->_avalanches.reserve(time_steps / 2);
 }
 
-// template <typename T>
-// void Sandpile<T>::initialize_system(const uint32_t time_steps, vector<T> start_cfg)
-// {
-//     this->initialize_system(time_steps, start_cfg, std::nullopt);
-// }
-//
-// template <typename T>
-// void Sandpile<T>::initialize_system(const uint32_t time_steps, int seed)
-// {
-//     this->initialize_system(time_steps, std::nullopt, seed);
-// }
 
 template <typename T>
-void Sandpile<T>::_perturb_conservative(vector<T>& cfg, vector<uint8_t>& position)
+void Sandpile<T>::_perturb_conservative(vector<T>& cfg, const vector<uint8_t>& position)
 {
     // auto cfg_buf = cfg.template mutable_unchecked<1>();
 
-    cfg(ravel_index(position, this->grid)) += static_cast<T>(this->dim);
+    auto r_index = ravel_index(position, this->grid);
+    cfg(r_index) += static_cast<T>(this->dim);
 
     // auto pos_buf = position.mutable_unchecked<1>();
     for (ssize_t i = 0; i < position.size(); ++i)
@@ -94,14 +84,14 @@ void Sandpile<T>::_perturb_conservative(vector<T>& cfg, vector<uint8_t>& positio
         {
             continue;
         }
-        position(i) -= 1;
-        cfg(ravel_index(position, this->grid)) -= 1;
-        position(i) += 1;
+        // position(i) -= 1;
+        cfg(shift_ravelled_index(r_index, this->dim, this->grid, -1, static_cast<uint8_t>(i))) -= 1;
+        // position(i) += 1;
     }
 }
 
 template <typename T>
-void Sandpile<T>::_perturb_non_conservative(vector<T>& cfg, vector<uint8_t>& position)
+void Sandpile<T>::_perturb_non_conservative(vector<T>& cfg, const vector<uint8_t>& position)
 {
     // auto cfg_buf = cfg.template mutable_unchecked<1>();
 
@@ -116,7 +106,7 @@ AvalancheData Sandpile<T>::_relax_avalanche(const uint32_t time_step, vector<T>&
 {
     // std::vector<uint16_t> dissipation_rate(0);
     // dissipation_rate.reserve(500);
-    AvalancheData avalanche(time_step);
+    AvalancheData avalanche;
 
     constexpr int max_step = 5000;
     int i = 0;
@@ -159,7 +149,7 @@ AvalancheData Sandpile<T>::_relax_avalanche(const uint32_t time_step, vector<T>&
 }
 
 template <typename T>
-void Sandpile<T>::_step(std::optional<vector<uint8_t>> perturb_position)
+void Sandpile<T>::step(std::optional<vector<uint8_t>> perturb_position)
 {
     // Generate random perturbation position
     if (!perturb_position)
@@ -200,21 +190,9 @@ void Sandpile<T>::simulate(const uint32_t time_steps, std::optional<vector<T>> s
     this->initialize_system(time_steps, start_cfg, seed);
     for (uint32_t i = 0; i < time_steps; ++i)
     {
-        this->_step(std::nullopt);
+        this->step(std::nullopt);
     }
 
     this->_average_slopes.shrink_to_fit();
     this->_avalanches.shrink_to_fit();
 }
-
-// template <typename T>
-// void Sandpile<T>::simulate(const uint32_t time_steps, vector<T> start_cfg)
-// {
-//     this->simulate(time_steps, start_cfg);
-// }
-
-// template <typename T>
-// void Sandpile<T>::simulate(const uint32_t time_steps, int seed)
-// {
-//     this->simulate(time_steps, std::nullopt, seed);
-// }
