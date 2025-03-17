@@ -1,1 +1,1 @@
-from cpp_computation.sandpile import *
+from .sandpile import *

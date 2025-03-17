@@ -18,12 +18,14 @@ SET(CMAKE_INSTALL_RPATH "/usr/lib64;/lib64")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 add_compile_options(-Wall -Wextra -Wconversion -Wfatal-errors -Wno-unused-variable)
 add_compile_options(-Wno-unused-parameter)
+add_compile_options(-flto=auto)
 #add_compile_options(-O3 -march=native -DNDEBUG)
 #if (CMAKE_BUILD_TYPE STREQUAL Debug)
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 #elseif(CMAKE_BUILD_TYPE STREQUAL Release)
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 #message("Debug: ${CMAKE_BUILD_TYPE}")
+add_executable(sandpile_test test.cpp)
 
 # add_compile_options(-fdiagnostics-color=always)
 
@@ -46,7 +48,7 @@ set(PYTHON_PACKAGE_DIR "/home/gabriel/miniconda3/lib/python3.12/site-packages")
 set(PYBIND11_FINDPYTHON ON)
 set(CMAKE_PREFIX_PATH "~/miniconda3/lib/python3.12/site-packages/pybind11/share/cmake/pybind11")
 find_package(pybind11 CONFIG REQUIRED)
-pybind11_add_module(sandpile sandpile.cpp)
+pybind11_add_module(sandpile py_sandpile.cpp)
 set_target_properties(sandpile PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_custom_command(
@@ -55,6 +57,7 @@ add_custom_command(
         COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/sandpile${PYTHON_EXTENSION_SUFFIX} ${PYTHON_PACKAGE_DIR}/sandpile${PYTHON_EXTENSION_SUFFIX}
         COMMAND ${STUBGEN_BINARY} sandpile -o .
         COMMAND rm ${PYTHON_PACKAGE_DIR}/sandpile${PYTHON_EXTENSION_SUFFIX}
+        COMMAND echo "Generated stub-files successfully."
 )
 
 install(TARGETS sandpile DESTINATION ${PYTHON_PACKAGE_DIR})

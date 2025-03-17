@@ -11,14 +11,14 @@ struct AvalancheData
     uint32_t size;
     uint32_t time;
     double reach;
-    vector<uint16_t> dissipation_rate;
+    std::vector<uint16_t> dissipation_rate;
 
     explicit AvalancheData(const uint32_t _t) : time_step(_t)
     {
         size = 0;
         time = 0;
         reach = 0;
-        dissipation_rate = vector<uint16_t>(0);
+        dissipation_rate = std::vector<uint16_t>(0);
     }
 };
 
@@ -140,3 +140,4 @@ void cl_bound_system_relax(vector<T>& cfg, vector<uint8_t>& position_index, cons
         cfg(shift_ravelled_index(ravelled_index, dim, grid, 1, static_cast<uint8_t>(i))) += 1;
     }
 }
+
