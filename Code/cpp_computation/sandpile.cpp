@@ -7,7 +7,10 @@ void Sandpile<T>::initialize_system(const uint32_t time_steps, std::optional<vec
                                     std::optional<int> seed)
 {
     this->_average_slopes.clear();
-    this->_avalanches.clear();
+    this->_size.clear();
+    this->_time.clear();
+    this->_reach.clear();
+    this->dissipation_rate.clear();
 
     // specific seed for testing
     if (!seed.has_value())
@@ -65,15 +68,16 @@ void Sandpile<T>::initialize_system(const uint32_t time_steps, std::optional<vec
     }
     average_slope /= static_cast<double>(this->current_cfg.size());
     this->_average_slopes.push_back(average_slope);
-    this->_avalanches.reserve(time_steps / 2);
+    this->_size.reserve(time_steps / 2);
+    this->_time.reserve(time_steps / 2);
+    this->_reach.reserve(time_steps / 2);
+    this->dissipation_rate.reserve(time_steps / 2);
 }
 
 
 template <typename T>
 void Sandpile<T>::_perturb_conservative(vector<T>& cfg, const vector<uint8_t>& position)
 {
-    // auto cfg_buf = cfg.template mutable_unchecked<1>();
-
     auto r_index = ravel_index(position, this->grid);
     cfg(r_index) += static_cast<T>(this->dim);
 
@@ -84,32 +88,26 @@ void Sandpile<T>::_perturb_conservative(vector<T>& cfg, const vector<uint8_t>& p
         {
             continue;
         }
-        // position(i) -= 1;
         cfg(shift_ravelled_index(r_index, this->dim, this->grid, -1, static_cast<uint8_t>(i))) -= 1;
-        // position(i) += 1;
     }
 }
 
 template <typename T>
 void Sandpile<T>::_perturb_non_conservative(vector<T>& cfg, const vector<uint8_t>& position)
 {
-    // auto cfg_buf = cfg.template mutable_unchecked<1>();
-
     cfg(ravel_index(position, this->grid)) += static_cast<T>(this->dim);
 }
 
-// TODO
 template <typename T>
-AvalancheData Sandpile<T>::_relax_avalanche(const uint32_t time_step, vector<T>& start_cfg,
-                                            vector<uint8_t>& start_point
-)
+void Sandpile<T>::_relax_avalanche(vector<T>& start_cfg, vector<uint8_t>& start_point)
 {
-    // std::vector<uint16_t> dissipation_rate(0);
-    // dissipation_rate.reserve(500);
-    AvalancheData avalanche;
-
     constexpr int max_step = 5000;
     int i = 0;
+    uint32_t size{};
+    uint32_t time{};
+    double reach{};
+    std::vector<uint16_t> dissipation_rate;
+    dissipation_rate.reserve(DISSIPATION_RESERVE);
 
     for (i = 0; i < max_step; ++i)
     {
@@ -119,21 +117,19 @@ AvalancheData Sandpile<T>::_relax_avalanche(const uint32_t time_step, vector<T>&
             break;
         }
 
-        avalanche.size += static_cast<uint32_t>(critical_points.size());
-        avalanche.time += 1;
-        avalanche.dissipation_rate.push_back(static_cast<uint16_t>(critical_points.size()));
+        size += static_cast<uint32_t>(critical_points.size());
+        time += 1;
+        dissipation_rate.push_back(static_cast<uint16_t>(critical_points.size()));
 
         for (auto& critical_point : critical_points)
         {
-            // auto buf = critical_point.template unchecked<1>();
-            // auto start_buf = start_point.unchecked<1>();
             double temp = 0.;
             for (ssize_t j = 0; j < critical_point.size(); ++j)
             {
-                temp += static_cast<double>(pow(start_point(j) - critical_point(j), 2));
+                temp += (pow(start_point(j) - critical_point(j), 2));
             }
             temp = sqrt(temp);
-            avalanche.reach = std::max(avalanche.reach, temp);
+            reach = std::max(reach, temp);
 
             this->_relax_func(start_cfg, critical_point);
         }
@@ -144,8 +140,14 @@ AvalancheData Sandpile<T>::_relax_avalanche(const uint32_t time_step, vector<T>&
         throw std::runtime_error("Max number of step iterations reached");
     }
 
-    // avalanche.dissipation_rate = py::array_t<uint16_t>(dissipation_rate.size(), dissipation_rate.data());
-    return avalanche;
+    if (this->_average_slopes.size() > this->time_cut_off)
+    {
+        this->_size.push_back(size);
+        this->_time.push_back(time);
+        this->_reach.push_back(reach);
+        vector<uint16_t> dissipation_rate_eigen(dissipation_rate.size());
+        std::ranges::move(dissipation_rate.begin(), dissipation_rate.end(), dissipation_rate_eigen.data());
+    }
 }
 
 template <typename T>
@@ -175,11 +177,7 @@ void Sandpile<T>::step(std::optional<vector<uint8_t>> perturb_position)
     // Relax the system
     if (this->current_cfg(ravel_index(perturb_position.value(), this->grid)) > this->crit_slope)
     {
-        auto avalanche = this->_relax_avalanche(static_cast<uint32_t>(this->_average_slopes.size() - 1),
-                                                this->current_cfg,
-                                                perturb_position.value());
-
-        this->_avalanches.push_back(avalanche);
+        this->_relax_avalanche(this->current_cfg, perturb_position.value());
     }
 }
 
@@ -194,5 +192,8 @@ void Sandpile<T>::simulate(const uint32_t time_steps, std::optional<vector<T>> s
     }
 
     this->_average_slopes.shrink_to_fit();
-    this->_avalanches.shrink_to_fit();
+    this->_size.shrink_to_fit();
+    this->_time.shrink_to_fit();
+    this->_reach.shrink_to_fit();
+    this->dissipation_rate.shrink_to_fit();
 }

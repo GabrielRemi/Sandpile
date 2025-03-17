@@ -1,8 +1,11 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/benchmark/catch_benchmark.hpp>
 #include <catch2/benchmark/catch_chronometer.hpp>
+#include <Eigen/Core>
+#include <avalanche.hpp>
+#include <vector>
 
-#include <sandpile.hpp>
+// #include <sandpile.hpp>
 
 #define N 100'000
 TEST_CASE("benching")
@@ -39,5 +42,27 @@ TEST_CASE("benching")
         {
             vector<int> v3 = Eigen::Map<vector<int>>(&v1.front(), N);
         });
+    };
+#define N 10
+    BENCHMARK("resizing"){
+        Eigen::VectorXi v(50'000);
+        int i = 0;
+        for (i = 0; i < N; ++i)
+        {
+            v(i) = i;
+        }
+        v.conservativeResize(i);
+    };
+
+    BENCHMARK("push_back") {
+        std::vector<int> v;
+        v.reserve(50'000);
+        for (int i = 0; i < N; ++i)
+        {
+            v.push_back(i);
+        }
+        Eigen::VectorXi v2(N);
+        std::ranges::move(v.begin(), v.end(), v2.data());
+        REQUIRE(v2(N-1) == (N-1));
     };
 }

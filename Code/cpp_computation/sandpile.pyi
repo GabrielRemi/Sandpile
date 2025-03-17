@@ -36,6 +36,12 @@ class Sandpile16Bit:
         ...
     def get_has_open_boundary(self) -> bool:
         ...
+    def get_reach(self) -> numpy.ndarray[numpy.float64[m, 1]]:
+        ...
+    def get_size(self) -> numpy.ndarray[numpy.uint32[m, 1]]:
+        ...
+    def get_time(self) -> numpy.ndarray[numpy.uint32[m, 1]]:
+        ...
     def initialize_system(self, time_steps: int, start_cfg: numpy.ndarray[numpy.int16[m, 1]] | None = None, seed: int | None = None) -> None:
         """
         Initialize the system to start a simulation. You need to run this function every time
@@ -66,6 +72,14 @@ class Sandpile16Bit:
         
         :param perturb_position: The position of the perturbation. If not specified, perturb the system at random.
         """
+    @property
+    def time_cuf_off(self) -> int:
+        """
+        All avalanche data registered before this time step will be ignored
+        """
+    @time_cuf_off.setter
+    def time_cuf_off(self, arg0: int) -> None:
+        ...
 class Sandpile8Bit:
     crit_slope: int
     dim: int
@@ -100,6 +114,12 @@ class Sandpile8Bit:
         ...
     def get_has_open_boundary(self) -> bool:
         ...
+    def get_reach(self) -> numpy.ndarray[numpy.float64[m, 1]]:
+        ...
+    def get_size(self) -> numpy.ndarray[numpy.uint32[m, 1]]:
+        ...
+    def get_time(self) -> numpy.ndarray[numpy.uint32[m, 1]]:
+        ...
     def initialize_system(self, time_steps: int, start_cfg: numpy.ndarray[numpy.int8[m, 1]] | None = None, seed: int | None = None) -> None:
         """
         Initialize the system to start a simulation. You need to run this function every time
@@ -130,3 +150,11 @@ class Sandpile8Bit:
         
         :param perturb_position: The position of the perturbation. If not specified, perturb the system at random.
         """
+    @property
+    def time_cuf_off(self) -> int:
+        """
+        All avalanche data registered before this time step will be ignored
+        """
+    @time_cuf_off.setter
+    def time_cuf_off(self, arg0: int) -> None:
+        ...

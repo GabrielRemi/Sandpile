@@ -4,22 +4,6 @@
 template <typename T>
 using vector = Eigen::VectorX<T>;
 
-struct AvalancheData
-{
-    uint32_t size;
-    uint32_t time;
-    double reach;
-    std::vector<uint16_t> dissipation_rate;
-
-    explicit AvalancheData()
-    {
-        size = 0;
-        time = 0;
-        reach = 0;
-        dissipation_rate = std::vector<uint16_t>(0);
-    }
-};
-
 inline uint64_t ravel_index(const vector<uint8_t>& multi_index, const uint8_t grid)
 {
     uint64_t result = 0, curr_pow = 0;
@@ -138,4 +122,3 @@ void cl_bound_system_relax(vector<T>& cfg, vector<uint8_t>& position_index, cons
         cfg(shift_ravelled_index(ravelled_index, dim, grid, 1, static_cast<uint8_t>(i))) += 1;
     }
 }
-

@@ -1,8 +1,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
 #include <pybind11/stl.h>
-#include <pybind11/options.h>
 #include <string>
+#include <vector>
 
 #include <sandpile.hpp>
 
@@ -43,9 +43,16 @@ as the number of points inside the grid is small enough for to work.
         .def_readwrite("dim", &Sandpile<T>::dim)
         .def_readwrite("grid", &Sandpile<T>::grid)
         .def_readwrite("crit_slope", &Sandpile<T>::crit_slope)
+        .def_readwrite("time_cuf_off", &Sandpile<T>::time_cut_off,
+                       "All avalanche data registered before this time step will be ignored")
         .def("get_average_slopes", &Sandpile<T>::get_average_slopes,
              "Array of average slopes calculated during the last simulation.",
              py::return_value_policy::reference_internal)
+        .def("get_size", &Sandpile<T>::get_size, py::return_value_policy::reference_internal)
+        .def("get_time", &Sandpile<T>::get_time, py::return_value_policy::reference_internal)
+        .def("get_reach", &Sandpile<T>::get_reach, py::return_value_policy::reference_internal)
+        // This does not work
+        // .def("dissipation_rate", &Sandpile<T>::dissipation_rate)
         .def("get_has_open_boundary", &Sandpile<T>::get_has_open_boundary)
         .def("get_has_conservative_perturbation", &Sandpile<T>::get_has_conservative_perturbation)
         // .def("set_has_open_boundary", &Sandpile<T>::set_has_open_boundary)
@@ -99,7 +106,6 @@ PYBIND11_MODULE(sandpile, m)
     //     .def_readwrite("reach", &AvalancheData::reach)
     //     .def_readwrite("dissipation_rate", &AvalancheData::dissipation_rate);
     bind_sandpile<int8_t>(m, "Sandpile8Bit");
-    // bind_sandpile<int8_t>(m, "Sandpile");
     bind_sandpile<int16_t>(m, "Sandpile16Bit");
     // bind_sandpile<int32_t>(m, "Sandpile32Bit");
 }
