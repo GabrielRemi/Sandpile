@@ -53,6 +53,19 @@ as the number of points inside the grid is small enough for to work.
         .def("get_reach", &Sandpile<T>::get_reach, py::return_value_policy::reference_internal)
         // This does not work
         // .def("dissipation_rate", &Sandpile<T>::dissipation_rate)
+        .def("generate_total_dissipation_rate", &Sandpile<T>::generate_total_dissipation_rate,
+             py::return_value_policy::reference_internal,
+             py::arg("time_steps"),
+             py::arg("seed") = std::nullopt,
+             R"(
+Generate the total dissipation rate by randomly placing the individual dissipation rates on
+a grid.
+
+:param time_steps: defines the time scale of the total dissipation rate.
+:param seed: Uses this seed for random number generation.
+
+:return: total dissipation rate
+)")
         .def("get_has_open_boundary", &Sandpile<T>::get_has_open_boundary)
         .def("get_has_conservative_perturbation", &Sandpile<T>::get_has_conservative_perturbation)
         // .def("set_has_open_boundary", &Sandpile<T>::set_has_open_boundary)

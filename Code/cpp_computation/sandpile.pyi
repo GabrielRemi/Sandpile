@@ -28,6 +28,16 @@ class Sandpile16Bit:
         :param has_open_boundary: Specify if the system uses open boundaries for relaxation.
         :param has_conservative_perturbation: Specify if the system uses conservative perturbations for relaxations.
         """
+    def generate_total_dissipation_rate(self, time_steps: int, seed: int | None = None) -> numpy.ndarray[numpy.uint32[m, 1]]:
+        """
+        Generate the total dissipation rate by randomly placing the individual dissipation rates on
+        a grid.
+        
+        :param time_steps: defines the time scale of the total dissipation rate.
+        :param seed: Uses this seed for random number generation.
+        
+        :return: total dissipation rate
+        """
     def get_average_slopes(self) -> numpy.ndarray[numpy.float64[m, 1]]:
         """
         Array of average slopes calculated during the last simulation.
@@ -105,6 +115,16 @@ class Sandpile8Bit:
         :param crit_slope: Critical Slope. If the slope value on lattice point is above this value, the system relaxes.
         :param has_open_boundary: Specify if the system uses open boundaries for relaxation.
         :param has_conservative_perturbation: Specify if the system uses conservative perturbations for relaxations.
+        """
+    def generate_total_dissipation_rate(self, time_steps: int, seed: int | None = None) -> numpy.ndarray[numpy.uint32[m, 1]]:
+        """
+        Generate the total dissipation rate by randomly placing the individual dissipation rates on
+        a grid.
+        
+        :param time_steps: defines the time scale of the total dissipation rate.
+        :param seed: Uses this seed for random number generation.
+        
+        :return: total dissipation rate
         """
     def get_average_slopes(self) -> numpy.ndarray[numpy.float64[m, 1]]:
         """

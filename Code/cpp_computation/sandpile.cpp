@@ -147,6 +147,7 @@ void Sandpile<T>::_relax_avalanche(vector<T>& start_cfg, vector<uint8_t>& start_
         this->_reach.push_back(reach);
         vector<uint16_t> dissipation_rate_eigen(dissipation_rate.size());
         std::ranges::move(dissipation_rate.begin(), dissipation_rate.end(), dissipation_rate_eigen.data());
+        this->dissipation_rate.push_back(dissipation_rate_eigen);
     }
 }
 
@@ -196,4 +197,28 @@ void Sandpile<T>::simulate(const uint32_t time_steps, std::optional<vector<T>> s
     this->_time.shrink_to_fit();
     this->_reach.shrink_to_fit();
     this->dissipation_rate.shrink_to_fit();
+}
+
+template <typename T>
+vector<uint32_t> Sandpile<T>::generate_total_dissipation_rate(const uint32_t time_steps, std::optional<int> seed)
+{
+    if (!seed.has_value())
+    {
+        std::random_device rd{};
+        seed = rd();
+    }
+    std::mt19937 gen(seed.value());
+    std::uniform_int_distribution<uint32_t> start_dist(0, time_steps - 1);
+
+    vector<uint32_t> total {vector<uint32_t>::Zero(time_steps)};
+    for (auto & dis : this->dissipation_rate)
+    {
+        const auto start = start_dist(gen);
+        for (ssize_t j = 0; j < dis.size(); ++j)
+        {
+            total((j + start) % time_steps) += static_cast<uint32_t>(dis(j));
+        }
+    }
+
+    return total;
 }
