@@ -3,6 +3,11 @@ project(computation VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(CMAKE_BUILD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/build)
+
+enable_testing()
+find_package(Catch2 REQUIRED)
+
 # set(CMAKE_GENERATOR "Unix Makefiles")
 # set(CMAKE_COLOR_DIAGNOSTICS ON)
 
@@ -13,37 +18,26 @@ SET(CMAKE_INSTALL_RPATH "/usr/lib64;/lib64")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 add_compile_options(-Wall -Wextra -Wconversion -Wfatal-errors -Wno-unused-variable)
 add_compile_options(-Wno-unused-parameter)
-add_compile_options(-O3 -march=native -DNDEBUG)
+#add_compile_options(-O3 -march=native -DNDEBUG)
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
+message("Debug: ${CMAKE_BUILD_TYPE}")
 
 # add_compile_options(-fdiagnostics-color=always)
 
 # add_compile_options(-Wl,-rpath,/usr/lib64)
-
-# TESTING
-enable_testing()
-find_package(Catch2 REQUIRED)
+add_subdirectory(tests)
 
 execute_process(
-    COMMAND python3-config --extension-suffix
-    OUTPUT_VARIABLE PYTHON_EXTENSION_SUFFIX
-    OUTPUT_STRIP_TRAILING_WHITESPACE
+        COMMAND python3-config --extension-suffix
+        OUTPUT_VARIABLE PYTHON_EXTENSION_SUFFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-file(GLOB TEST_FILES "tests/*.cpp")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-
-foreach(test_file ${TEST_FILES})
-    get_filename_component(test_name ${test_file} NAME_WE)
-    add_executable(${test_name} ${test_file})
-    target_link_libraries(${test_name} PRIVATE Catch2::Catch2WithMain)
-    add_test(NAME ${test_name} COMMAND ${test_name})
-endforeach()
-
-# message("files: ${TEST_FILES}")
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # add_executable(cpp_unit_tests ${TEST_FILES})
 set(PYTHON_BINARY "/home/gabriel/miniconda/bin/python3.12")
 set(STUBGEN_BINARY "/home/gabriel/miniconda3/bin/pybind11-stubgen")
-set(TEST_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests")
 
 set(PYTHON_PACKAGE_DIR "/home/gabriel/miniconda3/lib/python3.12/site-packages")
 set(PYBIND11_FINDPYTHON ON)
@@ -53,16 +47,13 @@ pybind11_add_module(sandpile sandpile.cpp)
 set_target_properties(sandpile PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_custom_command(
-    TARGET sandpile POST_BUILD
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/sandpile${PYTHON_EXTENSION_SUFFIX} ${PYTHON_PACKAGE_DIR}/sandpile${PYTHON_EXTENSION_SUFFIX}
-    COMMAND pybind11-stubgen sandpile -o .
-    COMMAND rm ${PYTHON_PACKAGE_DIR}/sandpile${PYTHON_EXTENSION_SUFFIX}
+        TARGET sandpile POST_BUILD
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/sandpile${PYTHON_EXTENSION_SUFFIX} ${PYTHON_PACKAGE_DIR}/sandpile${PYTHON_EXTENSION_SUFFIX}
+        COMMAND ${STUBGEN_BINARY} sandpile -o .
+        COMMAND rm ${PYTHON_PACKAGE_DIR}/sandpile${PYTHON_EXTENSION_SUFFIX}
 )
 
-# add_custom_target(pytest ALL
-# COMMAND pytest ${CMAKE_CURRENT_SOURCE_DIR}/..
-# )
 install(TARGETS sandpile DESTINATION ${PYTHON_PACKAGE_DIR})
 
 # install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} DESTINATION ${PYTHON_PACKAGE_DIR} FILES_MATCHING PATTERN "*.so")
@@ -70,4 +61,3 @@ set(${CMAKE_CURRENT_SOURCE_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-# add_test(NAME avalanche_test
