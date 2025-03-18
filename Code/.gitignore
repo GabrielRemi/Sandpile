@@ -1,5 +1,9 @@
 test_data
 d2*/
-test*
+test.*
 **/__pycache__/
 **/.vscode/
+**/build/
+**/.ipynb_checkpoints
+**/*.pytest_cache
+**/*cache*
