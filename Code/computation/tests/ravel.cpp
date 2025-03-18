@@ -14,6 +14,43 @@
 
 namespace fs = std::filesystem;
 
+TEST_CASE("Benchmarks")
+{
+    BENCHMARK_ADVANCED("Ravel Dim 2 Grid 40")(Catch::Benchmark::Chronometer meter)
+    {
+        std::mt19937 gen(0);
+        std::uniform_int_distribution<uint8_t> ind_dist(0, 39);
+        auto multi_index = Eigen::VectorX<uint8_t>(2);
+        multi_index << ind_dist(gen), ind_dist(gen);
+        meter.measure([&multi_index]() { return ravel_index(multi_index, 40); });
+    };
+
+    BENCHMARK_ADVANCED("Ravel Dim 6 Grid 40")(Catch::Benchmark::Chronometer meter)
+    {
+        std::mt19937 gen(0);
+        auto multi_index = Eigen::VectorX<uint8_t>(6);
+        std::uniform_int_distribution<uint8_t> ind_dist(0, 39);
+        multi_index << ind_dist(gen), ind_dist(gen), ind_dist(gen), ind_dist(gen), ind_dist(gen), ind_dist(gen);
+        meter.measure([&multi_index]() { return ravel_index(multi_index, 40); });
+    };
+
+    BENCHMARK_ADVANCED("Unravel Dim 2 Grid 40")(Catch::Benchmark::Chronometer meter)
+    {
+        std::mt19937 gen(0);
+        std::uniform_int_distribution<uint8_t> ind_dist(0, static_cast<uint64_t>(pow(40, 2)) - 1);
+        auto index = ind_dist(gen);
+        meter.measure([&index]() { return unravel_index(index, 2, 40); });
+    };
+
+    BENCHMARK_ADVANCED("Unravel Dim 6 Grid 40")(Catch::Benchmark::Chronometer meter)
+    {
+        std::mt19937 gen(0);
+        std::uniform_int_distribution<uint8_t> ind_dist(0, static_cast<uint64_t>(pow(40, 6)) - 1);
+        auto index = ind_dist(gen);
+        meter.measure([&index]() { return unravel_index(index, 2, 40); });
+    };
+}
+
 TEST_CASE("Ravel Index")
 {
     SECTION("Dim 1 Grid 5")
@@ -81,7 +118,6 @@ TEST_CASE("Unravel Index")
         REQUIRE(result(0) == 1);
         REQUIRE(result(1) == 4);
     };
-
     SECTION("Index 48 Dim 3 Grid 5")
     {
         uint64_t index = 48;
@@ -173,13 +209,12 @@ TEST_CASE("Shift Raveled Index")
             auto b = out1 == out2;
             if (!b)
             {
-                auto log_path {fs::path(__FILE__).parent_path()/"shift_ravel.log"};
+                auto log_path{fs::path(__FILE__).parent_path() / "shift_ravel.log"};
                 auto file = std::ofstream(log_path.string());
                 file << std::format("seed: {}, dim {}, grid {}, shift_dim {}", seed, dim, grid, i) << std::endl;
                 file << index << std::endl << std::endl;
                 file << out1 << std::endl;
                 file << out2 << std::endl;
-
             }
             REQUIRE(out1 == out2);
         }

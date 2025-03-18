@@ -1,5 +1,6 @@
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/benchmark/catch_benchmark.hpp>
 #include <avalanche.hpp>
 #include <random>
 #include <fstream>
@@ -7,12 +8,16 @@
 #include <unordered_set>
 
 template <typename T>
-std::vector<T> remove_duplicates(const std::vector<T>& vec) {
+std::vector<T> remove_duplicates(const std::vector<T>& vec)
+{
     std::unordered_set<T> seen;
     std::vector<T> result;
 
-    for (int num : vec) {
-        if (seen.insert(num).second) {  // ✅ Inserts only if not already in set
+    for (int num : vec)
+    {
+        if (seen.insert(num).second)
+        {
+            // ✅ Inserts only if not already in set
             result.push_back(num);
         }
     }
@@ -58,17 +63,25 @@ void ndim_test(const uint8_t dim, const uint8_t grid)
         crit_count = static_cast<int>(indices.size());
 
         const auto result = get_critical_points(cfg, dim, grid, crit_slope);
+        if (_i == 0)
+        {
+            BENCHMARK(std::format("DIM {} GRID {}", dim, grid))
+            {
+                get_critical_points(cfg, dim, grid, crit_slope);
+            };
+        }
         // REQUIRE(result.size() == crit_count);
-        if ((static_cast<int>(result.size()) != crit_count) || (result != indices)) {
-            auto log_file_path(std::filesystem::path(__FILE__).parent_path()/"critical_points_error.log");
-            auto log_file {std::ofstream(log_file_path.string())};
+        if ((static_cast<int>(result.size()) != crit_count) || (result != indices))
+        {
+            auto log_file_path(std::filesystem::path(__FILE__).parent_path() / "critical_points_error.log");
+            auto log_file{std::ofstream(log_file_path.string())};
             log_file << std::format("failed seed: {}", seed) << std::endl;
-            for (auto &r : result)
+            for (auto& r : result)
             {
                 log_file << r << std::endl;
             }
             log_file << std::endl;
-            for (auto &ind : indices)
+            for (auto& ind : indices)
             {
                 log_file << ind << std::endl;
             }

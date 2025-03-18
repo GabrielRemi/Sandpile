@@ -7,21 +7,6 @@
 
 TEST_CASE("OP_BOUND_SYSTEM_RELAX")
 {
-    BENCHMARK_ADVANCED("2D GRID 40")(Catch::Benchmark::Chronometer meter)
-    {
-        std::mt19937 gen(0);
-        vector<int8_t> cfg(40 * 40);
-        cfg.setConstant(10);
-        vector<uint8_t> index(2);
-        index << 20, 20;
-        meter.measure(
-            [&cfg, &index]()
-            {
-                return op_bound_system_relax(cfg, index, 40);
-            }
-        );
-    };
-
     SECTION("1D")
     {
         vector<int8_t> cfg(5);
@@ -83,26 +68,42 @@ TEST_CASE("OP_BOUND_SYSTEM_RELAX")
 
         REQUIRE(result == cfg);
     }
+    SECTION("Benchmarks")
+    {
+        BENCHMARK_ADVANCED("DIM 2 GRID 40")(Catch::Benchmark::Chronometer meter)
+        {
+            std::mt19937 gen(0);
+            vector<int8_t> cfg(40 * 40);
+            cfg.setConstant(10);
+            vector<uint8_t> index(2);
+            index << 20, 20;
+            meter.measure(
+                [&cfg, &index]()
+                {
+                    return op_bound_system_relax(cfg, index, 40);
+                }
+            );
+        };
 
+        BENCHMARK_ADVANCED("DIM 6 GRID 20")(Catch::Benchmark::Chronometer meter)
+        {
+            std::mt19937 gen(0);
+            vector<int8_t> cfg(static_cast<int>(pow(20, 6)));
+            cfg.setConstant(10);
+            vector<uint8_t> index(6);
+            index << 10, 10, 10, 10, 10, 10;
+            meter.measure(
+                [&cfg, &index]()
+                {
+                    return op_bound_system_relax(cfg, index, 20);
+                }
+            );
+        };
+    }
 }
 
 TEST_CASE("CL_BOUND_SYSTEM_RELAX")
 {
-    BENCHMARK_ADVANCED("2D GRID 40")(Catch::Benchmark::Chronometer meter)
-    {
-        std::mt19937 gen(0);
-        vector<int8_t> cfg(40 * 40);
-        cfg.setConstant(10);
-        vector<uint8_t> index(2);
-        index << 20, 20;
-        meter.measure(
-            [&cfg, &index]()
-            {
-                return cl_bound_system_relax(cfg, index, 40);
-            }
-        );
-    };
-
     SECTION("1D")
     {
         vector<int8_t> cfg(5);
@@ -157,4 +158,36 @@ TEST_CASE("CL_BOUND_SYSTEM_RELAX")
 
         REQUIRE(result == cfg);
     }
+
+    SECTION("Benchmarks")
+    {
+        BENCHMARK_ADVANCED("DIM 2 GRID 40")(Catch::Benchmark::Chronometer meter)
+        {
+            std::mt19937 gen(0);
+            vector<int8_t> cfg(40 * 40);
+            cfg.setConstant(10);
+            vector<uint8_t> index(2);
+            index << 20, 20;
+            meter.measure(
+                [&cfg, &index]()
+                {
+                    return cl_bound_system_relax(cfg, index, 40);
+                }
+            );
+        };
+        BENCHMARK_ADVANCED("DIM 6 GRID 20")(Catch::Benchmark::Chronometer meter)
+        {
+            std::mt19937 gen(0);
+            vector<int8_t> cfg(static_cast<int>(pow(20, 6)));
+            cfg.setConstant(10);
+            vector<uint8_t> index(6);
+            index << 10, 10, 10, 10, 10, 10;
+            meter.measure(
+                [&cfg, &index]()
+                {
+                    return cl_bound_system_relax(cfg, index, 20);
+                }
+            );
+        };
+    };
 }

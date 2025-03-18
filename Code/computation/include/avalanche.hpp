@@ -6,19 +6,18 @@ using vector = Eigen::VectorX<T>;
 
 inline uint64_t ravel_index(const vector<uint8_t>& multi_index, const uint8_t grid)
 {
-    uint64_t result = 0, curr_pow = 0;
+    uint64_t result = 0, power = 1;
 
     for (ssize_t i = multi_index.size() - 1; i >= 0; --i)
     {
-        result += static_cast<uint64_t>(multi_index(i)) *
-            static_cast<uint64_t>(std::pow(static_cast<uint64_t>(grid), curr_pow));
-        curr_pow += 1;
+        result += static_cast<uint64_t>(multi_index(i)) * power;
+        power *= static_cast<uint64_t>(grid);
     }
 
     return result;
 }
 
-inline vector<uint8_t> unravel_index(uint64_t index, uint8_t dim, uint8_t grid)
+inline vector<uint8_t> unravel_index(uint64_t index, const uint8_t dim, const uint8_t grid)
 {
     vector<uint8_t> result(dim);
 
@@ -34,8 +33,6 @@ inline vector<uint8_t> unravel_index(uint64_t index, uint8_t dim, uint8_t grid)
 inline uint64_t shift_ravelled_index(const uint64_t index, const uint8_t dim, const uint8_t grid, const int64_t shift,
                                      const uint8_t shift_dim)
 {
-    // return static_cast<uint64_t>(static_cast<int16_t>(index) +
-    //     shift * static_cast<int16_t>(pow(grid, dim - shift_dim - 1)));
     const int64_t index_shift = shift * static_cast<int64_t>(pow(grid, dim - shift_dim - 1));
     if (index_shift < 0)
     {
@@ -55,8 +52,7 @@ std::vector<vector<uint8_t>> get_critical_points(vector<T>& cfg, const uint8_t d
 
     for (ssize_t i = 0; i < cfg.size(); ++i)
     {
-        auto slope = cfg(i);
-        if (static_cast<int16_t>(slope) > static_cast<int16_t>(crit_slope))
+        if (cfg(i) > static_cast<T>(crit_slope))
         {
             points.push_back(unravel_index(static_cast<uint64_t>(i), dim, grid));
         }
@@ -85,7 +81,7 @@ void op_bound_system_relax(vector<T>& cfg, vector<uint8_t>& position_index, cons
         }
     }
 
-    cfg(ravel_index(position_index, grid)) += static_cast<T>(-2 * dim + boundary_indices);
+    cfg(raveled_index) += static_cast<T>(-2 * dim + boundary_indices);
 
     for (ssize_t i = 0; i < dim; ++i)
     {
@@ -114,7 +110,7 @@ void cl_bound_system_relax(vector<T>& cfg, vector<uint8_t>& position_index, cons
         }
     }
 
-    cfg(ravel_index(position_index, grid)) += static_cast<T>(-2 * dim);
+    cfg(ravelled_index) += static_cast<T>(-2 * dim);
     for (ssize_t i = 0; i < dim; ++i)
     {
         cfg(shift_ravelled_index(ravelled_index, dim, grid, -1, static_cast<uint8_t>(i))) += 1;

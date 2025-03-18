@@ -143,7 +143,9 @@ def _process(meta: ProcessMeta):
     # )
     save_avalanche_data(system, (meta.data_dir / f"avalanche_data_{meta.index}.npz").absolute().__str__())
 
-    # d = system.generate_total_dissipation_rate(meta.total_dissipation_time)
+    d = system.generate_total_dissipation_rate(meta.total_dissipation_time)
+    power_spectrum = np.fft.rfft(d).__abs__() ** 2
+    np.save(meta.data_dir / f"power_spectrum_{meta.index}.npy", power_spectrum)
 
     # df = system.get_avalanche_data()
     # bins, _ = np.histogramdd((df["size"], df["time"], df["reach"]), bins=[*edges])
@@ -211,10 +213,19 @@ def run_multiple_samples(
     with Pool(cpu_count() - 2) as pool:
         list(tqdm(pool.imap_unordered(_process, tasks), total=sample_count, desc=system_desc))
 
-    # edges, bins = generate_3d_distribution_from_data_sample(data_dir)
+    # Generate Data to analyze
     edges, bins = generate_3d_distribution_from_data_samples(list(data_dir.glob("avalanche_data_*.npz")))
     for file in data_dir.glob("avalanche_data_*.npz"):
         file.unlink()
 
     np.savez_compressed(data_dir / "avalanche_distribution.npz", size=edges[0], time=edges[1], reach=edges[2],
                         bins=bins)
+
+    mean_power_spectrum = np.zeros(shape=(total_dissipation_time // 2 + 1,), dtype=np.float64)
+
+    for file in data_dir.glob("power_spectrum_*.npy"):
+        mean_power_spectrum += np.load(file)
+        file.unlink()
+    mean_power_spectrum /= sample_count
+
+    np.save(data_dir / "mean_power_spectrum.npy", mean_power_spectrum)

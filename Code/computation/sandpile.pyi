@@ -71,7 +71,7 @@ class Sandpile16Bit:
         
         Example:
         ```python
-        from cpp_computation import Sandpile
+        from computation import Sandpile
         system = Sandpile(2, 20, 7)
         system.simulate(100)
         print(system.average_slopes)
@@ -159,7 +159,7 @@ class Sandpile8Bit:
         
         Example:
         ```python
-        from cpp_computation import Sandpile
+        from computation import Sandpile
         system = Sandpile(2, 20, 7)
         system.simulate(100)
         print(system.average_slopes)
