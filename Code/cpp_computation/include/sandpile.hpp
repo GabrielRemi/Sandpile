@@ -15,8 +15,12 @@ inline vector<T> from_std_vector(std::vector<T>& v)
     return w;
 }
 
+struct BaseSandpile
+{
+};
+
 template <typename T>
-struct Sandpile
+struct Sandpile : BaseSandpile
 {
 private:
     std::function<void(vector<T>&, vector<uint8_t>&)> _perturb_func{};
@@ -27,9 +31,9 @@ private:
     void _relax_avalanche(vector<T>& start_cfg, vector<uint8_t>& start_point);
 
     // Data of the avalanches
-    std::vector<uint32_t> _size {};
-    std::vector<uint32_t> _time {};
-    std::vector<double> _reach {};
+    std::vector<uint32_t> _size{};
+    std::vector<uint32_t> _time{};
+    std::vector<double> _reach{};
 
     std::mt19937 _gen{};
     std::uniform_int_distribution<uint8_t> _dist{};
@@ -72,6 +76,5 @@ public:
 
     vector<uint32_t> generate_total_dissipation_rate(uint32_t time_steps, std::optional<int> seed);
 };
-
 
 #include "../sandpile.cpp"
