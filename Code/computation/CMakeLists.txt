@@ -14,7 +14,7 @@ find_package(Catch2 REQUIRED)
 # RPATH
 set(CMAKE_SKIP_RPATH FALSE)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-SET(CMAKE_INSTALL_RPATH "/usr/lib64;/lib64")
+set(CMAKE_INSTALL_RPATH "/usr/lib64;/lib64")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 add_compile_options(-Wall -Wextra -Wconversion -Werror=conversion -Wfatal-errors -Wno-unused-variable)
 add_compile_options(-Wno-unused-parameter)
@@ -25,7 +25,6 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 #elseif(CMAKE_BUILD_TYPE STREQUAL Release)
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 #message("Debug: ${CMAKE_BUILD_TYPE}")
-add_executable(sandpile_test test.cpp)
 
 # add_compile_options(-fdiagnostics-color=always)
 

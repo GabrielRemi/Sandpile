@@ -38,7 +38,8 @@ else:
     from tqdm import tqdm
 
 __all__ = ["Sandpile", "get_avalanche_hist_3d", "save_avalanche_distribution", "save_avalanche_data", "load_3d_dist",
-           "generate_3d_distribution_from_data_samples", "run_multiple_samples"]
+           "generate_3d_distribution_from_data_samples", "calculate_power_spectrum", "calculate_power_frequencies",
+           "run_multiple_samples"]
 
 Sandpile: TypeAlias = Sandpile8Bit | Sandpile16Bit
 
@@ -110,6 +111,14 @@ def generate_3d_distribution_from_data_samples(data_files: list[str]) -> tuple[
 from dataclasses import dataclass
 
 
+def calculate_power_spectrum(dissipation_rate: NDArray):
+    return (np.fft.rfft(dissipation_rate).__abs__() ** 2)[1:]
+
+
+def calculate_power_frequencies(dissipation_rate: NDArray):
+    return np.fft.rfftfreq(len(dissipation_rate))[1:]
+
+
 @dataclass
 class ProcessMeta:
     bit: int
@@ -144,7 +153,8 @@ def _process(meta: ProcessMeta):
     save_avalanche_data(system, (meta.data_dir / f"avalanche_data_{meta.index}.npz").absolute().__str__())
 
     d = system.generate_total_dissipation_rate(meta.total_dissipation_time)
-    power_spectrum = np.fft.rfft(d).__abs__() ** 2
+    # power_spectrum = np.fft.rfft(d).__abs__() ** 2
+    power_spectrum = calculate_power_spectrum(d)
     np.save(meta.data_dir / f"power_spectrum_{meta.index}.npy", power_spectrum)
 
     # df = system.get_avalanche_data()

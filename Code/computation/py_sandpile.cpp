@@ -43,7 +43,7 @@ as the number of points inside the grid is small enough for to work.
         .def_readwrite("dim", &Sandpile<T>::dim)
         .def_readwrite("grid", &Sandpile<T>::grid)
         .def_readwrite("crit_slope", &Sandpile<T>::crit_slope)
-        .def_readwrite("time_cuf_off", &Sandpile<T>::time_cut_off,
+        .def_readwrite("time_cut_off", &Sandpile<T>::time_cut_off,
                        "All avalanche data registered before this time step will be ignored")
         .def("get_average_slopes", &Sandpile<T>::get_average_slopes,
              "Array of average slopes calculated during the last simulation.",

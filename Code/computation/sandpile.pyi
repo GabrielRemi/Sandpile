@@ -71,7 +71,7 @@ class Sandpile16Bit:
         
         Example:
         ```python
-        from computation import Sandpile
+        from cpp_computation import Sandpile
         system = Sandpile(2, 20, 7)
         system.simulate(100)
         print(system.average_slopes)
@@ -83,12 +83,12 @@ class Sandpile16Bit:
         :param perturb_position: The position of the perturbation. If not specified, perturb the system at random.
         """
     @property
-    def time_cuf_off(self) -> int:
+    def time_cut_off(self) -> int:
         """
         All avalanche data registered before this time step will be ignored
         """
-    @time_cuf_off.setter
-    def time_cuf_off(self, arg0: int) -> None:
+    @time_cut_off.setter
+    def time_cut_off(self, arg0: int) -> None:
         ...
 class Sandpile8Bit:
     crit_slope: int
@@ -159,7 +159,7 @@ class Sandpile8Bit:
         
         Example:
         ```python
-        from computation import Sandpile
+        from cpp_computation import Sandpile
         system = Sandpile(2, 20, 7)
         system.simulate(100)
         print(system.average_slopes)
@@ -171,10 +171,10 @@ class Sandpile8Bit:
         :param perturb_position: The position of the perturbation. If not specified, perturb the system at random.
         """
     @property
-    def time_cuf_off(self) -> int:
+    def time_cut_off(self) -> int:
         """
         All avalanche data registered before this time step will be ignored
         """
-    @time_cuf_off.setter
-    def time_cuf_off(self, arg0: int) -> None:
+    @time_cut_off.setter
+    def time_cut_off(self, arg0: int) -> None:
         ...
