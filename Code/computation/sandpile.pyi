@@ -6,18 +6,7 @@ class Sandpile16Bit:
     crit_slope: int
     dim: int
     grid: int
-    @typing.overload
-    def __init__(self, dim: int, grid: int, crit_slope: int) -> None:
-        """
-        A Class for simulating Sandpiles. Can be used with any dimension and grid size, as long
-        as the number of points inside the grid is small enough for to work.
-        
-        :param dim: Dimension of the system
-        :param grid: Grid size per dimension
-        :param crit_slope: Critical Slope. If the slope value on lattice point is above this value, the system relaxes.
-        """
-    @typing.overload
-    def __init__(self, dim: int, grid: int, crit_slope: int, has_open_boundary: bool, has_conservative_perturbation: bool) -> None:
+    def __init__(self, dim: int, grid: int, crit_slope: int, has_open_boundary: bool = True, has_conservative_perturbation: bool = True) -> None:
         """
         A Class for simulating Sandpiles. Can be used with any dimension and grid size, as long
         as the number of points inside the grid is small enough for to work.
@@ -94,18 +83,7 @@ class Sandpile8Bit:
     crit_slope: int
     dim: int
     grid: int
-    @typing.overload
-    def __init__(self, dim: int, grid: int, crit_slope: int) -> None:
-        """
-        A Class for simulating Sandpiles. Can be used with any dimension and grid size, as long
-        as the number of points inside the grid is small enough for to work.
-        
-        :param dim: Dimension of the system
-        :param grid: Grid size per dimension
-        :param crit_slope: Critical Slope. If the slope value on lattice point is above this value, the system relaxes.
-        """
-    @typing.overload
-    def __init__(self, dim: int, grid: int, crit_slope: int, has_open_boundary: bool, has_conservative_perturbation: bool) -> None:
+    def __init__(self, dim: int, grid: int, crit_slope: int, has_open_boundary: bool = True, has_conservative_perturbation: bool = True) -> None:
         """
         A Class for simulating Sandpiles. Can be used with any dimension and grid size, as long
         as the number of points inside the grid is small enough for to work.

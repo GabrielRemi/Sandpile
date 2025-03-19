@@ -37,16 +37,16 @@ void Sandpile<T>::initialize_system(const uint32_t time_steps, std::optional<vec
     }
     if (this->_has_open_boundary)
     {
-        _relax_func = [this](vector<T>& cfg, vector<uint8_t>& position)
+        _relax_func = [this](vector<T>& cfg, const uint64_t raveled_index, set& crit_points)
         {
-            return op_bound_system_relax(cfg, position, this->grid);
+            return Sandpile::_op_bound_system_relax(cfg, raveled_index, crit_points);
         };
     }
     else
     {
-        _relax_func = [this](vector<T>& cfg, vector<uint8_t>& position)
+        _relax_func = [this](vector<T>& cfg, const uint64_t raveled_index, set& crit_points)
         {
-            return cl_bound_system_relax(cfg, position, this->grid);
+            return Sandpile::_cl_bound_system_relax(cfg, raveled_index, crit_points);
         };
     }
 
@@ -98,6 +98,90 @@ void Sandpile<T>::_perturb_non_conservative(vector<T>& cfg, const vector<uint8_t
     cfg(ravel_index(position, this->grid)) += static_cast<T>(this->dim);
 }
 
+// Deprecated
+template <typename T>
+void Sandpile<T>::_op_bound_system_relax(vector<T>& cfg, uint64_t raveled_index, set& crit_points)
+{
+    auto position_index = unravel_index(raveled_index, this->dim, this->grid);
+
+    T boundary_indices = 0;
+    for (ssize_t i = 0; i < this->dim; ++i)
+    {
+        if (position_index(i) == 0)
+        {
+            cfg(raveled_index) = 0;
+            return;
+        }
+        if (position_index(i) == this->grid - 1)
+        {
+            ++boundary_indices;
+        }
+    }
+
+    cfg(raveled_index) += static_cast<T>(-2 * this->dim + boundary_indices);
+
+    for (ssize_t i = 0; i < this->dim; ++i)
+    {
+        auto x = shift_ravelled_index(raveled_index, this->dim, this->grid, -1, static_cast<uint8_t>(i));
+        T& s1 = cfg(x);
+        s1 += 1;
+        if (s1 > this->crit_slope)
+        {
+            crit_points.insert(x);
+        }
+
+        if (position_index(i) < (grid - 1))
+        {
+            x = shift_ravelled_index(raveled_index, dim, grid, 1, static_cast<uint8_t>(i));
+            T& s2 = cfg(x);
+            s2 += 1;
+            if (s2 > this->crit_slope)
+            {
+                crit_points.insert(x);
+            }
+        }
+    }
+}
+
+// Deprecated
+template <typename T>
+void Sandpile<T>::_cl_bound_system_relax(vector<T>& cfg, const uint64_t raveled_index, set &crit_points)
+{
+    // const auto dim = static_cast<uint8_t>(position_index.size());
+    auto position_index = unravel_index(raveled_index, this->dim, this->grid);
+
+    T boundary_indices = 0;
+    // auto ravelled_index = ravel_index(position_index, grid);
+    for (ssize_t i = 0; i < this->dim; ++i)
+    {
+        if (position_index(i) == 0 || position_index(i) == (this->grid - 1))
+        {
+            cfg(raveled_index) = 0;
+            return;
+        }
+    }
+
+    cfg(raveled_index) += static_cast<T>(-2 * this->dim);
+    for (ssize_t i = 0; i < this->dim; ++i)
+    {
+        auto x = shift_ravelled_index(raveled_index, this->dim, this->grid, -1, static_cast<uint8_t>(i));
+        T& s1 = cfg(x);
+        s1 += 1;
+        if (s1 > this->crit_slope)
+        {
+            crit_points.insert(x);
+        }
+
+        x = shift_ravelled_index(raveled_index, this->dim, this->grid, 1, static_cast<uint8_t>(i));
+        T& s2 = cfg(x);
+        s2 += 1;
+        if (s2 > this->crit_slope)
+        {
+            crit_points.insert(x);
+        }
+    }
+}
+
 template <typename T>
 void Sandpile<T>::_relax_avalanche(vector<T>& start_cfg, vector<uint8_t>& start_point)
 {
@@ -109,30 +193,36 @@ void Sandpile<T>::_relax_avalanche(vector<T>& start_cfg, vector<uint8_t>& start_
     std::vector<uint16_t> dissipation_rate;
     dissipation_rate.reserve(DISSIPATION_RESERVE);
 
+    auto raveled_index = ravel_index(start_point, this->grid);
+    set crit_points{raveled_index};
+    set temp_crit_points{};
     for (i = 0; i < max_step; ++i)
     {
-        auto critical_points = get_critical_points(start_cfg, this->dim, this->grid, this->crit_slope);
-        if (critical_points.size() == 0)
+        // auto critical_points = get_critical_points(start_cfg, this->dim, this->grid, this->crit_slope);
+        if (crit_points.empty())
         {
             break;
         }
 
-        size += static_cast<uint32_t>(critical_points.size());
+        size += static_cast<uint32_t>(crit_points.size());
         time += 1;
-        dissipation_rate.push_back(static_cast<uint16_t>(critical_points.size()));
+        dissipation_rate.push_back(static_cast<uint16_t>(crit_points.size()));
 
-        for (auto& critical_point : critical_points)
+        for (uint64_t crit_point : crit_points)
         {
             double temp = 0.;
-            for (ssize_t j = 0; j < critical_point.size(); ++j)
+            auto crit_point_multi_index = unravel_index(crit_point, this->dim, this->grid);
+            for (ssize_t j = 0; j < crit_point_multi_index.size(); ++j)
             {
-                temp += (pow(start_point(j) - critical_point(j), 2));
+                temp += (pow(start_point(j) - crit_point_multi_index(j), 2));
             }
             temp = sqrt(temp);
             reach = std::max(reach, temp);
 
-            this->_relax_func(start_cfg, critical_point);
+            this->_relax_func(start_cfg, crit_point, temp_crit_points);
         }
+        std::swap(crit_points, temp_crit_points);
+        temp_crit_points.clear();
     }
 
     if (i == (max_step - 1))
@@ -210,8 +300,8 @@ vector<uint32_t> Sandpile<T>::generate_total_dissipation_rate(const uint32_t tim
     std::mt19937 gen(seed.value());
     std::uniform_int_distribution<uint32_t> start_dist(0, time_steps - 1);
 
-    vector<uint32_t> total {vector<uint32_t>::Zero(time_steps)};
-    for (auto & dis : this->dissipation_rate)
+    vector<uint32_t> total{vector<uint32_t>::Zero(time_steps)};
+    for (auto& dis : this->dissipation_rate)
     {
         const auto start = start_dist(gen);
         for (ssize_t j = 0; j < dis.size(); ++j)

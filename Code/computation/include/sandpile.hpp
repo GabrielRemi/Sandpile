@@ -2,9 +2,11 @@
 #include <functional>
 #include <avalanche.hpp>
 #include <random>
+#include <set>
 
 
 #define DISSIPATION_RESERVE 10'000
+using set = std::set<uint64_t>;
 
 template <typename T>
 inline vector<T> from_std_vector(std::vector<T>& v)
@@ -24,10 +26,12 @@ struct Sandpile : BaseSandpile
 {
 private:
     std::function<void(vector<T>&, vector<uint8_t>&)> _perturb_func{};
-    std::function<void(vector<T>&, vector<uint8_t>&)> _relax_func{};
+    std::function<void(vector<T>&, uint64_t, set&)> _relax_func{};
     std::vector<double> _average_slopes{};
     void _perturb_conservative(vector<T>& cfg, const vector<uint8_t>& position);
     void _perturb_non_conservative(vector<T>& cfg, const vector<uint8_t>& position);
+    void _op_bound_system_relax(vector<T>& cfg, uint64_t raveled_index, set& crit_points);
+    void _cl_bound_system_relax(vector<T>& cfg, uint64_t raveled_index, set& crit_points);
     void _relax_avalanche(vector<T>& start_cfg, vector<uint8_t>& start_point);
 
     // Data of the avalanches
@@ -37,8 +41,8 @@ private:
 
     std::mt19937 _gen{};
     std::uniform_int_distribution<uint8_t> _dist{};
-    bool _has_open_boundary{};
-    bool _has_conservative_perturbation{};
+    bool _has_open_boundary;
+    bool _has_conservative_perturbation;
 
 public:
     uint8_t dim;
@@ -58,11 +62,11 @@ public:
     bool get_has_conservative_perturbation() const { return _has_conservative_perturbation; }
     vector<T> current_cfg{};
 
-    Sandpile(const uint8_t _d, const uint8_t _g, const uint8_t _c) : dim(_d), grid(_g), crit_slope(_c)
-    {
-        _has_open_boundary = true;
-        _has_conservative_perturbation = true;
-    }
+    // Sandpile(const uint8_t _d, const uint8_t _g, const uint8_t _c) : dim(_d), grid(_g), crit_slope(_c)
+    // {
+    //     _has_open_boundary = true;
+    //     _has_conservative_perturbation = true;
+    // }
 
     Sandpile(const uint8_t _d, const uint8_t _g, const uint8_t _c, const bool _b, const bool _p)
         : _has_open_boundary(_b), _has_conservative_perturbation(_p), dim(_d), grid(_g), crit_slope(_c)

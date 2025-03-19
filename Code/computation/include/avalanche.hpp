@@ -1,5 +1,6 @@
 #pragma once
 #include <Eigen/Core>
+#include <set>
 
 template <typename T>
 using vector = Eigen::VectorX<T>;
@@ -61,11 +62,11 @@ std::vector<vector<uint8_t>> get_critical_points(vector<T>& cfg, const uint8_t d
     return points;
 }
 
+// Deprecated
 template <typename T>
-void op_bound_system_relax(vector<T>& cfg, vector<uint8_t>& position_index, const uint8_t grid)
+void op_bound_system_relax(vector<T>& cfg, uint64_t raveled_index, const uint8_t grid, const uint8_t dim)
 {
-    const auto dim = static_cast<uint8_t>(position_index.size());
-    auto raveled_index = ravel_index(position_index, grid);
+    auto position_index = unravel_index(raveled_index, dim, grid);
 
     T boundary_indices = 0;
     for (ssize_t i = 0; i < dim; ++i)
@@ -75,7 +76,7 @@ void op_bound_system_relax(vector<T>& cfg, vector<uint8_t>& position_index, cons
             cfg(raveled_index) = 0;
             return;
         }
-        else if (position_index(i) == grid - 1)
+        if (position_index(i) == grid - 1)
         {
             ++boundary_indices;
         }
@@ -85,36 +86,44 @@ void op_bound_system_relax(vector<T>& cfg, vector<uint8_t>& position_index, cons
 
     for (ssize_t i = 0; i < dim; ++i)
     {
-        cfg(shift_ravelled_index(raveled_index, dim, grid, -1, static_cast<uint8_t>(i))) += 1;
+        auto x = shift_ravelled_index(raveled_index, dim, grid, -1, static_cast<uint8_t>(i));
+        T &s1 = cfg(x);
+        s1 += 1;
 
         if (position_index(i) < (grid - 1))
         {
-            cfg(shift_ravelled_index(raveled_index, dim, grid, 1, static_cast<uint8_t>(i))) += 1;
+            x = shift_ravelled_index(raveled_index, dim, grid, 1, static_cast<uint8_t>(i));
+            T &s2 = cfg(x);
+            s2 += 1;
         }
     }
 }
 
+// Deprecated
 template <typename T>
-void cl_bound_system_relax(vector<T>& cfg, vector<uint8_t>& position_index, const uint8_t grid)
+void cl_bound_system_relax(vector<T>& cfg, const uint64_t raveled_index, const uint8_t grid, const uint8_t dim)
 {
-    const auto dim = static_cast<uint8_t>(position_index.size());
+    // const auto dim = static_cast<uint8_t>(position_index.size());
+    auto position_index = unravel_index(raveled_index, dim, grid);
 
     T boundary_indices = 0;
-    auto ravelled_index = ravel_index(position_index, grid);
+    // auto ravelled_index = ravel_index(position_index, grid);
     for (ssize_t i = 0; i < dim; ++i)
     {
         if (position_index(i) == 0 || position_index(i) == (grid - 1))
         {
-            cfg(ravelled_index) = 0;
+            cfg(raveled_index) = 0;
             return;
         }
     }
 
-    cfg(ravelled_index) += static_cast<T>(-2 * dim);
+    cfg(raveled_index) += static_cast<T>(-2 * dim);
     for (ssize_t i = 0; i < dim; ++i)
     {
-        cfg(shift_ravelled_index(ravelled_index, dim, grid, -1, static_cast<uint8_t>(i))) += 1;
+        T& s1 = cfg(shift_ravelled_index(raveled_index, dim, grid, -1, static_cast<uint8_t>(i)));
+        s1 += 1;
 
-        cfg(shift_ravelled_index(ravelled_index, dim, grid, 1, static_cast<uint8_t>(i))) += 1;
+        T &s2 = cfg(shift_ravelled_index(raveled_index, dim, grid, 1, static_cast<uint8_t>(i)));
+        s2 += 1;
     }
 }

@@ -10,6 +10,7 @@ find_package(Catch2 REQUIRED)
 
 # set(CMAKE_GENERATOR "Unix Makefiles")
 # set(CMAKE_COLOR_DIAGNOSTICS ON)
+add_executable(testing test.cpp)
 
 # RPATH
 set(CMAKE_SKIP_RPATH FALSE)

@@ -12,24 +12,12 @@ template <typename T>
 void bind_sandpile(py::module_& m, const std::string name)
 {
     py::class_<Sandpile<T>>(m, name.c_str())
-        .def(py::init<uint8_t, uint8_t, uint8_t>(),
-             py::arg("dim"),
-             py::arg("grid"),
-             py::arg("crit_slope"),
-             R"(
-A Class for simulating Sandpiles. Can be used with any dimension and grid size, as long
-as the number of points inside the grid is small enough for to work.
-
-:param dim: Dimension of the system
-:param grid: Grid size per dimension
-:param crit_slope: Critical Slope. If the slope value on lattice point is above this value, the system relaxes.
-)")
         .def(py::init<uint8_t, uint8_t, uint8_t, bool, bool>(),
              py::arg("dim"),
              py::arg("grid"),
              py::arg("crit_slope"),
-             py::arg("has_open_boundary"),
-             py::arg("has_conservative_perturbation"),
+             py::arg("has_open_boundary") = true,
+             py::arg("has_conservative_perturbation") = true,
              R"(
 A Class for simulating Sandpiles. Can be used with any dimension and grid size, as long
 as the number of points inside the grid is small enough for to work.

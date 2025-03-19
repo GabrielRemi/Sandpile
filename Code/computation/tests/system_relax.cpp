@@ -14,7 +14,8 @@ TEST_CASE("OP_BOUND_SYSTEM_RELAX")
         vector<uint8_t> index(1);
         index << 2;
 
-        op_bound_system_relax(cfg, index, 5);
+        // op_bound_system_relax(cfg, index, 5);
+        op_bound_system_relax(cfg, ravel_index(index, 5), 5, 1);
 
         vector<int8_t> result(5);
         result << 0, 1, 2, 1, 0;
@@ -23,7 +24,8 @@ TEST_CASE("OP_BOUND_SYSTEM_RELAX")
         cfg << 0, 0, 0, 1, 0;
         result << 0, 0, 0, 2, -1;
         index << 4;
-        op_bound_system_relax(cfg, index, 5);
+        // op_bound_system_relax(cfg, index, 5);
+        op_bound_system_relax(cfg, ravel_index(index, 5), 5, 1);
         REQUIRE(result == cfg);
     }
 
@@ -35,7 +37,8 @@ TEST_CASE("OP_BOUND_SYSTEM_RELAX")
         vector<uint8_t> index(2);
         index << 2, 2;
         cfg(ravel_index(index, 5)) = 4;
-        op_bound_system_relax(cfg, index, 5);
+        // op_bound_system_relax(cfg, index, 5);
+        op_bound_system_relax(cfg, ravel_index(index, 5), 5, 2);
 
         vector<int8_t> result(25);
         result.setZero();
@@ -57,7 +60,8 @@ TEST_CASE("OP_BOUND_SYSTEM_RELAX")
         result.setZero();
         index << 4, 4;
         cfg(ravel_index(index, 5)) = 4;
-        op_bound_system_relax(cfg, index, 5);
+        // op_bound_system_relax(cfg, index, 5);
+        op_bound_system_relax(cfg, ravel_index(index, 5), 5, 2);
         result(ravel_index(index, 5)) = 2;
         index(0) -= 1;
         result(ravel_index(index, 5)) = 1;
@@ -80,7 +84,8 @@ TEST_CASE("OP_BOUND_SYSTEM_RELAX")
             meter.measure(
                 [&cfg, &index]()
                 {
-                    return op_bound_system_relax(cfg, index, 40);
+                    // return op_bound_system_relax(cfg, index, 40);
+                    return op_bound_system_relax(cfg, ravel_index(index, 40), 40, 2);
                 }
             );
         };
@@ -95,7 +100,8 @@ TEST_CASE("OP_BOUND_SYSTEM_RELAX")
             meter.measure(
                 [&cfg, &index]()
                 {
-                    return op_bound_system_relax(cfg, index, 20);
+                    // return op_bound_system_relax(cfg, index, 20);
+                    return op_bound_system_relax(cfg, ravel_index(index, 20), 20, 6);
                 }
             );
         };
@@ -111,7 +117,8 @@ TEST_CASE("CL_BOUND_SYSTEM_RELAX")
         vector<uint8_t> index(1);
         index << 2;
 
-        cl_bound_system_relax(cfg, index, 5);
+        // cl_bound_system_relax(cfg, index, 5);
+        cl_bound_system_relax(cfg, ravel_index(index, 5), 5, 1);
 
         vector<int8_t> result(5);
         result << 0, 1, 2, 1, 0;
@@ -120,7 +127,8 @@ TEST_CASE("CL_BOUND_SYSTEM_RELAX")
         cfg << 0, 0, 0, 1, 1;
         result << 0, 0, 0, 1, 0;
         index << 4;
-        cl_bound_system_relax(cfg, index, 5);
+        // cl_bound_system_relax(cfg, index, 5);
+        cl_bound_system_relax(cfg, ravel_index(index, 5), 5, 1);
         REQUIRE(result == cfg);
     }
 
@@ -132,7 +140,7 @@ TEST_CASE("CL_BOUND_SYSTEM_RELAX")
         vector<uint8_t> index(2);
         index << 2, 2;
         cfg(ravel_index(index, 5)) = 4;
-        cl_bound_system_relax(cfg, index, 5);
+        cl_bound_system_relax(cfg, ravel_index(index, 5), 5, 2);
 
         vector<int8_t> result(25);
         result.setZero();
@@ -154,7 +162,7 @@ TEST_CASE("CL_BOUND_SYSTEM_RELAX")
         result.setZero();
         index << 4, 4;
         cfg(ravel_index(index, 5)) = 4;
-        cl_bound_system_relax(cfg, index, 5);
+        cl_bound_system_relax(cfg, ravel_index(index, 5), 5, 2);
 
         REQUIRE(result == cfg);
     }
@@ -171,7 +179,7 @@ TEST_CASE("CL_BOUND_SYSTEM_RELAX")
             meter.measure(
                 [&cfg, &index]()
                 {
-                    return cl_bound_system_relax(cfg, index, 40);
+                    return cl_bound_system_relax(cfg, ravel_index(index, 40), 40, 2);
                 }
             );
         };
@@ -185,7 +193,7 @@ TEST_CASE("CL_BOUND_SYSTEM_RELAX")
             meter.measure(
                 [&cfg, &index]()
                 {
-                    return cl_bound_system_relax(cfg, index, 20);
+                    return cl_bound_system_relax(cfg, ravel_index(index, 20), 20, 6);
                 }
             );
         };
