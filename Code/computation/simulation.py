@@ -233,7 +233,6 @@ def run_multiple_samples(
     # for file in data_dir.glob("avalanche_data_*.npz"):
     #     file.unlink()
     generate_3d_distribution_from_directory(data_dir)
-    load_3d_dist(data_dir / "avalanche_distribution.npz")
     #
     # np.savez_compressed(data_dir / "avalanche_distribution.npz", size=edges[0], time=edges[1], reach=edges[2],
     #                     bins=bins)
@@ -256,6 +255,11 @@ def generate_3d_distribution_from_directory(dir: Path):
 
     edges = []
     for c in centers:
+        if len(c) < 2:
+            print(f"No Avalanches generated for {dir}")
+            for file in files:
+                file.unlink()
+            return
         w = c[1] - c[0]
         e = [x - w/2 for x in c]
         e.append(c[-1] + w/2)
