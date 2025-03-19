@@ -5,8 +5,6 @@ from pathlib import Path
 from typing import Any
 
 
-params = [(1, 20), (2, 40), (3, 20), (4, 15), (5, 15), (6, 10)]
-
 
 # %%
 fig, ax = plt.subplots()
@@ -45,7 +43,7 @@ fig.clf()
 axs = fig.subplots(3, 3)
 
 data_dir = pathlib.Path("data")
-with open("scaling_exponents.json", "r") as f:
+with open("scaling_exponents_backup.json", "r") as f:
     meta = json.load(f)
 
 # if specified, calculate scaling exponents for only one data set

@@ -1,6 +1,6 @@
+import gc
 import os
 import sys
-from copy import deepcopy
 from multiprocessing import cpu_count, Pool
 from pathlib import Path
 from typing import *
@@ -67,11 +67,15 @@ def get_avalanche_hist_3d(size: Optional[NDArray] = None, time: Optional[NDArray
     for p in data:
         edges.append(np.array(range(np.floor(p).min().astype(int), np.ceil(p).max().astype(int) + 1)) - 0.5)
 
-    bins, _ = np.histogramdd((data[0], data[1], data[2]), bins=[*edges])  # type: ignore
+    for i in range(3):
+        if len(edges[i]) > 1000:
+            edges[i] = edges[i][::len(edges[i]) // 1000]
+
+    bins, _ = np.histogramdd((data[0], data[1], data[2]), bins=[*edges], density=True)
     for i in range(3):
         edges[i] = 0.5 * (edges[i][1:] + edges[i][:-1])
 
-    return edges, bins
+    return edges, bins / bins.sum()
 
 
 def save_avalanche_distribution(system: Sandpile, path: str):
@@ -112,11 +116,11 @@ from dataclasses import dataclass
 
 
 def calculate_power_spectrum(dissipation_rate: NDArray):
-    return (np.fft.rfft(dissipation_rate).__abs__() ** 2)[1:]
+    return (np.fft.rfft(dissipation_rate).__abs__() ** 2)
 
 
 def calculate_power_frequencies(dissipation_rate: NDArray):
-    return np.fft.rfftfreq(len(dissipation_rate))[1:]
+    return np.fft.rfftfreq(len(dissipation_rate))
 
 
 @dataclass
@@ -144,9 +148,10 @@ def _process(meta: ProcessMeta):
         system = Sandpile16Bit(meta.dim, meta.grid, meta.crit_slope, meta.is_open, meta.is_conservative)
     else:
         raise ValueError(f"unknown bit value: {meta.bit}")
-    system.time_cuf_off = meta.time_cut_off
+    system.time_cut_off = meta.time_cut_off
 
-    system.simulate(meta.time_steps, meta.start_cfg)
+    # Here we cannot set the start
+    system.simulate(meta.time_steps, None, None)
     # system.save_separate(
     #     (data_dir / f"data_{index}").absolute().__str__(), step, time_cut_off=time_cut_off, max_time=max_time
     # )
@@ -160,7 +165,7 @@ def _process(meta: ProcessMeta):
     # df = system.get_avalanche_data()
     # bins, _ = np.histogramdd((df["size"], df["time"], df["reach"]), bins=[*edges])
     del system
-    # gc.collect()
+    gc.collect()
 
 
 def run_multiple_samples(
@@ -215,7 +220,7 @@ def run_multiple_samples(
         raise ValueError("System argument has to be a Sandpile8Bit or Sandpile16Bit object")
 
     tasks = [ProcessMeta(bit, system.dim, system.grid, system.crit_slope, system.get_has_open_boundary(),
-                         system.get_has_conservative_perturbation(), system.time_cuf_off, time_steps,
+                         system.get_has_conservative_perturbation(), system.time_cut_off, time_steps,
                          total_dissipation_time, i, data_dir, desc, start_cfg) for i in
              range(pre_run_num, sample_count + pre_run_num)]
 

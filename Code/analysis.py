@@ -7,7 +7,6 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from scipy.optimize import curve_fit
 
-from sandpile import *
 from utils import *
 
 import uncertainties as unc
@@ -72,6 +71,7 @@ def plot_scaling_exponents(
     r: NDArray,
     bins,
     axs: tp.Any,
+    system_params: str,
     limits: list[tuple[float | None, float | None]] | None = None,
     do_plot: bool = True,
 ) -> pd.DataFrame | None:
@@ -162,8 +162,12 @@ def plot_scaling_exponents(
             axs[2, 1].plot(r[ind_r], expo(r[ind_r], tr_m, tr_n))
             axs[2, 2].plot(t[ind_t], expo(t[ind_t], rt_m, rt_n))
 
+        params = system_params.split("_")
         return pd.DataFrame(
             {
+                "dimension": int(params[0][1:]),
+                "grid": int(params[1][1:]),
+                "relax": f"{params[3]} {params[4]}",
                 "tau": unc.ufloat(1, 0) - s_m,  # type: ignore
                 "alpha": unc.ufloat(1, 0) - t_m,  # type: ignore
                 "lambda": unc.ufloat(1, 0) - r_m,  # type: ignore
