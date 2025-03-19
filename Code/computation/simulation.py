@@ -39,7 +39,7 @@ else:
 
 __all__ = ["Sandpile", "get_avalanche_hist_3d", "save_avalanche_distribution", "save_avalanche_data", "load_3d_dist",
            "generate_3d_distribution_from_data_samples", "calculate_power_spectrum", "calculate_power_frequencies",
-           "run_multiple_samples"]
+           "run_multiple_samples", "generate_3d_distribution_from_directory"]
 
 Sandpile: TypeAlias = Sandpile8Bit | Sandpile16Bit
 
@@ -229,12 +229,14 @@ def run_multiple_samples(
         list(tqdm(pool.imap_unordered(_process, tasks), total=sample_count, desc=system_desc))
 
     # Generate Data to analyze
-    edges, bins = generate_3d_distribution_from_data_samples(list(data_dir.glob("avalanche_data_*.npz")))
-    for file in data_dir.glob("avalanche_data_*.npz"):
-        file.unlink()
-
-    np.savez_compressed(data_dir / "avalanche_distribution.npz", size=edges[0], time=edges[1], reach=edges[2],
-                        bins=bins)
+    # edges, bins = generate_3d_distribution_from_data_samples(list(data_dir.glob("avalanche_data_*.npz")))
+    # for file in data_dir.glob("avalanche_data_*.npz"):
+    #     file.unlink()
+    generate_3d_distribution_from_directory(data_dir)
+    load_3d_dist(data_dir / "avalanche_distribution.npz")
+    #
+    # np.savez_compressed(data_dir / "avalanche_distribution.npz", size=edges[0], time=edges[1], reach=edges[2],
+    #                     bins=bins)
 
     mean_power_spectrum = np.zeros(shape=(total_dissipation_time // 2 + 1,), dtype=np.float64)
 
@@ -244,3 +246,29 @@ def run_multiple_samples(
     mean_power_spectrum /= sample_count
 
     np.save(data_dir / "mean_power_spectrum.npy", mean_power_spectrum)
+
+def generate_3d_distribution_from_directory(dir: Path):
+    files = dir.glob("avalanche_data_*.npz")
+    f = next(files)
+
+    centers, bins = generate_3d_distribution_from_data_samples([f.__str__()])
+    f.unlink()
+
+    edges = []
+    for c in centers:
+        w = c[1] - c[0]
+        e = [x - w/2 for x in c]
+        e.append(c[-1] + w/2)
+        edges.append(np.array(e))
+
+    i = 1
+    for file in files:
+        i += 1
+        data = np.load(file)
+        b, _ = np.histogramdd((data["size"], data["time"], data["reach"]), bins=[*edges], density=True)
+        bins += b / b.sum()
+        file.unlink()
+
+
+    np.savez_compressed(dir / "avalanche_distribution.npz", size=centers[0], time=centers[1], reach=centers[2], bins=bins)
+
