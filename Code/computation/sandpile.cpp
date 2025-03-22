@@ -145,7 +145,7 @@ void Sandpile<T>::_op_bound_system_relax(vector<T>& cfg, uint64_t raveled_index,
 
 // Deprecated
 template <typename T>
-void Sandpile<T>::_cl_bound_system_relax(vector<T>& cfg, const uint64_t raveled_index, set &crit_points)
+void Sandpile<T>::_cl_bound_system_relax(vector<T>& cfg, const uint64_t raveled_index, set& crit_points)
 {
     // const auto dim = static_cast<uint8_t>(position_index.size());
     auto position_index = unravel_index(raveled_index, this->dim, this->grid);
@@ -311,4 +311,14 @@ vector<uint32_t> Sandpile<T>::generate_total_dissipation_rate(const uint32_t tim
     }
 
     return total;
+}
+
+template <typename T>
+void Sandpile<T>::shrink_to_fit()
+{
+    this->_average_slopes.shrink_to_fit();
+    this->_size.shrink_to_fit();
+    this->_time.shrink_to_fit();
+    this->_reach.shrink_to_fit();
+    this->dissipation_rate.shrink_to_fit();
 }

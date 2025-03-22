@@ -57,6 +57,7 @@ public:
     vector<uint32_t> get_time() { return from_std_vector<uint32_t>(this->_time); }
     vector<double> get_reach() { return from_std_vector<double>(this->_reach); }
     vector<double> get_average_slopes() { return from_std_vector(this->_average_slopes); }
+    void shrink_to_fit();
 
     bool get_has_open_boundary() const { return _has_open_boundary; }
     bool get_has_conservative_perturbation() const { return _has_conservative_perturbation; }

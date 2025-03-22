@@ -1,7 +1,7 @@
 from __future__ import annotations
 import numpy
 import typing
-__all__ = ['Sandpile16Bit', 'Sandpile8Bit']
+__all__ = ['Sandpile16Bit', 'Sandpile8Bit', 'sandpile_simulate_worker']
 class Sandpile16Bit:
     crit_slope: int
     dim: int
@@ -156,3 +156,5 @@ class Sandpile8Bit:
     @time_cut_off.setter
     def time_cut_off(self, arg0: int) -> None:
         ...
+def sandpile_simulate_worker(system: Sandpile16Bit, shared_value: typing.Any, time_steps: int, start_cfg: numpy.ndarray[numpy.int16[m, 1]] | None = None, seed: int | None = None) -> None:
+    ...

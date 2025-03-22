@@ -6,7 +6,35 @@
 
 #include <sandpile.hpp>
 
+#define TQDM_UPDATE_STEPS 1000
+
 namespace py = pybind11;
+
+template <typename T>
+void sandpile_simulate_worker(Sandpile<T> system, const py::object& shared_value, uint32_t time_steps,
+                              std::optional<vector<T>> start_cfg, std::optional<int> seed)
+{
+    system.initialize_system(time_steps, start_cfg, seed);
+    const int tqdm_update_amount = static_cast<int>(time_steps / TQDM_UPDATE_STEPS);
+    const int start_value = shared_value.attr("value").cast<int>();
+
+    for (uint32_t i = 0; i < time_steps; ++i)
+    {
+        system.step(std::nullopt);
+        if (i % static_cast<uint32_t>(tqdm_update_amount) == 0)
+        {
+            auto _ = shared_value.attr("get_lock")().attr("acquire")();
+            shared_value.attr("value") = shared_value.attr("value").cast<int>() + tqdm_update_amount;
+            _ = shared_value.attr("get_lock")().attr("release")();
+        }
+    }
+
+    auto _ = shared_value.attr("get_lock")().attr("acquire")();
+    shared_value.attr("value") = start_value + static_cast<int>(time_steps);
+    _ = shared_value.attr("get_lock")().attr("release")();
+
+    system.shrink_to_fit();
+}
 
 template <typename T>
 void bind_sandpile(py::module_& m, const std::string name)
@@ -99,14 +127,13 @@ print(system.average_slopes)
 
 PYBIND11_MODULE(sandpile, m)
 {
-    // py::class_<AvalancheData>(m, "AvalancheData")
-    //     .def(py::init<uint32_t>())
-    //     .def_readwrite("time_step", &AvalancheData::time_step)
-    //     .def_readwrite("size", &AvalancheData::size)
-    //     .def_readwrite("time", &AvalancheData::time)
-    //     .def_readwrite("reach", &AvalancheData::reach)
-    //     .def_readwrite("dissipation_rate", &AvalancheData::dissipation_rate);
     bind_sandpile<int8_t>(m, "Sandpile8Bit");
     bind_sandpile<int16_t>(m, "Sandpile16Bit");
-    // bind_sandpile<int32_t>(m, "Sandpile32Bit");
+    m.def("sandpile_simulate_worker", &sandpile_simulate_worker<int16_t>,
+          py::arg("system"),
+          py::arg("shared_value"),
+          py::arg("time_steps"),
+          py::arg("start_cfg") = std::nullopt,
+          py::arg("seed") = std::nullopt
+    );
 }
