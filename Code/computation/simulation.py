@@ -1,7 +1,8 @@
 import gc
+import multiprocessing as mp
 import os
 import sys
-from multiprocessing import cpu_count, Pool
+import time
 from pathlib import Path
 from typing import *
 
@@ -10,7 +11,7 @@ import psutil  # type: ignore
 from IPython.core.getipython import get_ipython
 from numpy.typing import NDArray
 
-from .sandpile import Sandpile16Bit, Sandpile8Bit
+from .sandpile import *
 
 
 def get_memory() -> float:
@@ -138,23 +139,26 @@ class ProcessMeta:
     data_dir: Path
     desc: str
     start_cfg: Optional[NDArray] = None
+    tqdm_update_steps: Optional[int] = 1000
 
 
-def _process(meta: ProcessMeta):
+def _process(meta: ProcessMeta, shared_tqdm_value: mp.Value):
     np.random.seed(int.from_bytes(os.urandom(4), "big"))
     if meta.bit == 8:
-        system = Sandpile8Bit(meta.dim, meta.grid, meta.crit_slope, meta.is_open, meta.is_conservative)
+        sandpile = Sandpile8Bit
+        # sandpile_simulate_worker = sandpile_simulate_worker_8Bit
     elif meta.bit == 16:
-        system = Sandpile16Bit(meta.dim, meta.grid, meta.crit_slope, meta.is_open, meta.is_conservative)
+        sandpile = Sandpile16Bit
+        # sandpile_simulate_worker = sandpile_simulate_worker_16Bit
     else:
         raise ValueError(f"unknown bit value: {meta.bit}")
+
+    system = sandpile(meta.dim, meta.grid, meta.crit_slope, meta.is_open, meta.is_conservative)
     system.time_cut_off = meta.time_cut_off
 
-    # Here we cannot set the start
-    system.simulate(meta.time_steps, None, None)
-    # system.save_separate(
-    #     (data_dir / f"data_{index}").absolute().__str__(), step, time_cut_off=time_cut_off, max_time=max_time
-    # )
+    # system.simulate(meta.time_steps, None, None)
+    sandpile_simulate_worker(system, shared_tqdm_value, meta.time_steps, meta.tqdm_update_steps)
+
     save_avalanche_data(system, (meta.data_dir / f"avalanche_data_{meta.index}.npz").absolute().__str__())
 
     d = system.generate_total_dissipation_rate(meta.total_dissipation_time)
@@ -166,6 +170,14 @@ def _process(meta: ProcessMeta):
     # bins, _ = np.histogramdd((df["size"], df["time"], df["reach"]), bins=[*edges])
     del system
     gc.collect()
+
+
+def _worker(input_queue, shared_tqdm_value: mp.Value):
+    while True:
+        process_meta = input_queue.get()
+        if process_meta is None:
+            break
+        _process(process_meta, shared_tqdm_value)
 
 
 def run_multiple_samples(
@@ -191,7 +203,11 @@ def run_multiple_samples(
     :param start_cfg: Starting configuration of the system
 
     :param kwargs:
+        worker_count: number of workers to use for the simulation, defaults to cpu_count() - 2
+        tqdm_update_interval: interval in seconds for updating the progress bar, defaults to 0.01 seconds
+        tqdm_update_steps: number of updates if the progress bar for one sample, defaults to 1000 steps
     """
+    worker_count = kwargs.get("worker_count", mp.cpu_count() - 2)
 
     system_desc = f"d{system.dim}_g{system.grid}_c{system.crit_slope}_"
     bound = "op" if system.get_has_open_boundary() else "cl"
@@ -203,7 +219,9 @@ def run_multiple_samples(
         os.mkdir(data_dir)
     data_dir = (data_dir / system_desc).resolve().absolute()
 
+    # momentarily deprecated
     pre_run_num = 0  # if data was simulated before, the number of samples before this
+
     if not data_dir.exists():
         os.mkdir(data_dir)
     elif not data_dir.is_dir():
@@ -219,14 +237,40 @@ def run_multiple_samples(
     else:
         raise ValueError("System argument has to be a Sandpile8Bit or Sandpile16Bit object")
 
-    tasks = [ProcessMeta(bit, system.dim, system.grid, system.crit_slope, system.get_has_open_boundary(),
-                         system.get_has_conservative_perturbation(), system.time_cut_off, time_steps,
-                         total_dissipation_time, i, data_dir, desc, start_cfg) for i in
-             range(pre_run_num, sample_count + pre_run_num)]
+    shared_tqdm_value = mp.Value("i", 0)
+    input_queue = mp.Queue()
+    for i in range(sample_count + pre_run_num):
+        args = ProcessMeta(bit, system.dim, system.grid, system.crit_slope, system.get_has_open_boundary(),
+                           system.get_has_conservative_perturbation(), system.time_cut_off, time_steps,
+                           total_dissipation_time, i, data_dir, desc, start_cfg, kwargs.get("tqdm_update_steps", 1000))
+        input_queue.put(args)
+    for _ in range(worker_count):
+        input_queue.put(None)
+
+    processes = []
+    for _ in range(worker_count):
+        p = mp.Process(target=_worker, args=(input_queue, shared_tqdm_value))
+        p.start()
+        processes.append(p)
+
+    pbar_amount = sample_count * time_steps
+    pbar = tqdm(total=pbar_amount, desc=system_desc)
+
+    while shared_tqdm_value.value < pbar_amount:
+        time.sleep(kwargs.get("tqdm_update_interval", 0.01))
+        pbar.n = shared_tqdm_value.value
+        pbar.refresh()
+
+    pbar.n = shared_tqdm_value.value
+    pbar.refresh()
+    pbar.close()
+
+    for p in processes:
+        p.join()
 
     # ------RUN----------
-    with Pool(cpu_count() - 2) as pool:
-        list(tqdm(pool.imap_unordered(_process, tasks), total=sample_count, desc=system_desc))
+    # with Pool(cpu_count() - 2) as pool:
+    #     list(tqdm(pool.imap_unordered(_process, tasks), total=sample_count, desc=system_desc))
 
     # Generate Data to analyze
     # edges, bins = generate_3d_distribution_from_data_samples(list(data_dir.glob("avalanche_data_*.npz")))
@@ -246,6 +290,7 @@ def run_multiple_samples(
 
     np.save(data_dir / "mean_power_spectrum.npy", mean_power_spectrum)
 
+
 def generate_3d_distribution_from_directory(dir: Path):
     files = dir.glob("avalanche_data_*.npz")
     f = next(files)
@@ -261,8 +306,8 @@ def generate_3d_distribution_from_directory(dir: Path):
                 file.unlink()
             return
         w = c[1] - c[0]
-        e = [x - w/2 for x in c]
-        e.append(c[-1] + w/2)
+        e = [x - w / 2 for x in c]
+        e.append(c[-1] + w / 2)
         edges.append(np.array(e))
 
     i = 1
@@ -273,6 +318,5 @@ def generate_3d_distribution_from_directory(dir: Path):
         bins += b / b.sum()
         file.unlink()
 
-
-    np.savez_compressed(dir / "avalanche_distribution.npz", size=centers[0], time=centers[1], reach=centers[2], bins=bins)
-
+    np.savez_compressed(dir / "avalanche_distribution.npz", size=centers[0], time=centers[1], reach=centers[2],
+                        bins=bins)
