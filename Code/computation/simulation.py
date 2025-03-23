@@ -40,7 +40,8 @@ else:
 
 __all__ = ["Sandpile", "get_avalanche_hist_3d", "save_avalanche_distribution", "save_avalanche_data", "load_3d_dist",
            "generate_3d_distribution_from_data_samples", "calculate_power_spectrum", "calculate_power_frequencies",
-           "run_multiple_samples", "generate_3d_distribution_from_directory"]
+           "run_multiple_samples", "generate_3d_distribution_from_directory", "generate_power_spectrum_from_directory",
+           "clean_up_directory"]
 
 Sandpile: TypeAlias = Sandpile8Bit | Sandpile16Bit
 
@@ -220,15 +221,14 @@ def run_multiple_samples(
     data_dir = (data_dir / system_desc).resolve().absolute()
 
     # momentarily deprecated
-    pre_run_num = 0  # if data was simulated before, the number of samples before this
-
     if not data_dir.exists():
         os.mkdir(data_dir)
     elif not data_dir.is_dir():
         print("Name for folder already exists for a file", file=sys.stderr)
     else:
-        for file in data_dir.iterdir():
-            file.unlink()
+        if kwargs.get("clear", True):
+            for file in data_dir.iterdir():
+                file.unlink()
 
     if isinstance(system, Sandpile8Bit):
         bit = 8
@@ -239,7 +239,7 @@ def run_multiple_samples(
 
     shared_tqdm_value = mp.Value("i", 0)
     input_queue = mp.Queue()
-    for i in range(sample_count + pre_run_num):
+    for i in range(sample_count):
         args = ProcessMeta(bit, system.dim, system.grid, system.crit_slope, system.get_has_open_boundary(),
                            system.get_has_conservative_perturbation(), system.time_cut_off, time_steps,
                            total_dissipation_time, i, data_dir, desc, start_cfg, kwargs.get("tqdm_update_steps", 1000))
@@ -268,35 +268,26 @@ def run_multiple_samples(
     for p in processes:
         p.join()
 
-    # ------RUN----------
-    # with Pool(cpu_count() - 2) as pool:
-    #     list(tqdm(pool.imap_unordered(_process, tasks), total=sample_count, desc=system_desc))
-
-    # Generate Data to analyze
-    # edges, bins = generate_3d_distribution_from_data_samples(list(data_dir.glob("avalanche_data_*.npz")))
-    # for file in data_dir.glob("avalanche_data_*.npz"):
-    #     file.unlink()
     generate_3d_distribution_from_directory(data_dir)
+    generate_power_spectrum_from_directory(data_dir)
+    # mean_power_spectrum = np.zeros(shape=(total_dissipation_time // 2 + 1,), dtype=np.float64)
     #
-    # np.savez_compressed(data_dir / "avalanche_distribution.npz", size=edges[0], time=edges[1], reach=edges[2],
-    #                     bins=bins)
-
-    mean_power_spectrum = np.zeros(shape=(total_dissipation_time // 2 + 1,), dtype=np.float64)
-
-    for file in data_dir.glob("power_spectrum_*.npy"):
-        mean_power_spectrum += np.load(file)
-        file.unlink()
-    mean_power_spectrum /= sample_count
-
-    np.save(data_dir / "mean_power_spectrum.npy", mean_power_spectrum)
+    # for file in data_dir.glob("power_spectrum_*.npy"):
+    #     mean_power_spectrum += np.load(file)
+    #     file.unlink()
+    # mean_power_spectrum /= sample_count
+    #
+    # np.save(data_dir / "mean_power_spectrum.npy", mean_power_spectrum)
 
 
 def generate_3d_distribution_from_directory(dir: Path):
     files = dir.glob("avalanche_data_*.npz")
-    f = next(files)
-
-    centers, bins = generate_3d_distribution_from_data_samples([f.__str__()])
-    f.unlink()
+    if dir.joinpath("avalanche_distribution.npz").exists():
+        centers, bins = load_3d_dist(dir.joinpath("avalanche_distribution.npz"))
+    else:
+        f = next(files)
+        centers, bins = generate_3d_distribution_from_data_samples([f.__str__()])
+        f.unlink()
 
     edges = []
     for c in centers:
@@ -317,6 +308,37 @@ def generate_3d_distribution_from_directory(dir: Path):
         b, _ = np.histogramdd((data["size"], data["time"], data["reach"]), bins=[*edges], density=True)
         bins += b / b.sum()
         file.unlink()
-
+    bins /= bins.sum()
     np.savez_compressed(dir / "avalanche_distribution.npz", size=centers[0], time=centers[1], reach=centers[2],
                         bins=bins)
+
+
+def generate_power_spectrum_from_directory(dir: Path):
+    files = dir.glob("power_spectrum_*.npy")
+    try:
+        f = next(files)
+    except StopIteration:
+        return
+    power_spectrum = np.load(f)
+    n = len(power_spectrum)
+
+    if dir.joinpath("mean_power_spectrum.npy").exists():
+        print("Exists")
+        mean_power_spectrum = np.load(dir.joinpath("mean_power_spectrum.npy"))
+        if len(mean_power_spectrum) != n:
+            raise ValueError("Mean power spectrum has the wrong length")
+    else:
+        mean_power_spectrum = np.zeros(shape=(n,), dtype=np.float64)
+    mean_power_spectrum += power_spectrum / power_spectrum.max()
+    f.unlink()
+
+    for file in files:
+        mean_power_spectrum += np.load(file)
+        file.unlink()
+    mean_power_spectrum /= mean_power_spectrum.max()
+    np.save(dir / "mean_power_spectrum.npy", mean_power_spectrum)
+
+
+def clean_up_directory(dir: Path):
+    generate_3d_distribution_from_directory(dir)
+    generate_power_spectrum_from_directory(dir)
