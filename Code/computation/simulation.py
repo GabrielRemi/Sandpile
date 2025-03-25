@@ -46,6 +46,13 @@ __all__ = ["Sandpile", "get_avalanche_hist_3d", "save_avalanche_distribution", "
 Sandpile: TypeAlias = Sandpile8Bit | Sandpile16Bit
 
 
+def simulate(system: Sandpile, time_steps: int):
+    value = mp.Value("i", 0)
+    t = tqdm(total=time_steps)
+
+
+
+
 @overload
 def get_avalanche_hist_3d(*, system: Sandpile) -> tuple[list[NDArray[np.float64]], NDArray[np.float64]]:
     ...
@@ -253,7 +260,7 @@ def run_multiple_samples(
         p.start()
         processes.append(p)
 
-    pbar_amount = sample_count * time_steps
+    pbar_amount = sample_count * kwargs.get("tqdm_update_steps", 1000)
     pbar = tqdm(total=pbar_amount, desc=system_desc)
 
     while shared_tqdm_value.value < pbar_amount:
@@ -270,14 +277,6 @@ def run_multiple_samples(
 
     generate_3d_distribution_from_directory(data_dir)
     generate_power_spectrum_from_directory(data_dir)
-    # mean_power_spectrum = np.zeros(shape=(total_dissipation_time // 2 + 1,), dtype=np.float64)
-    #
-    # for file in data_dir.glob("power_spectrum_*.npy"):
-    #     mean_power_spectrum += np.load(file)
-    #     file.unlink()
-    # mean_power_spectrum /= sample_count
-    #
-    # np.save(data_dir / "mean_power_spectrum.npy", mean_power_spectrum)
 
 
 def generate_3d_distribution_from_directory(dir: Path):

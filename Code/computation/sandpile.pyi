@@ -1,7 +1,7 @@
 from __future__ import annotations
 import numpy
 import typing
-__all__ = ['Sandpile16Bit', 'Sandpile8Bit', 'sandpile_simulate_worker']
+__all__ = ['Sandpile16Bit', 'Sandpile8Bit', 'sandpile_simulate_single', 'sandpile_simulate_worker']
 class Sandpile16Bit:
     crit_slope: int
     dim: int
@@ -157,8 +157,14 @@ class Sandpile8Bit:
     def time_cut_off(self, arg0: int) -> None:
         ...
 @typing.overload
-def sandpile_simulate_worker(system: Sandpile8Bit, shared_value: typing.Any, time_steps: int, tqdm_update_steps: int | None = None) -> None:
+def sandpile_simulate_single(system: Sandpile8Bit, time_steps: int, tqdm_update_steps: int = 1000, position: int = 0) -> None:
     ...
 @typing.overload
-def sandpile_simulate_worker(system: Sandpile16Bit, shared_value: typing.Any, time_steps: int, tqdm_update_steps: int | None = None) -> None:
+def sandpile_simulate_single(system: Sandpile16Bit, time_steps: int, tqdm_update_steps: int = 1000, position: int = 0) -> None:
+    ...
+@typing.overload
+def sandpile_simulate_worker(system: Sandpile8Bit, shared_value: typing.Any, time_steps: int, tqdm_update_steps: int = 1000) -> None:
+    ...
+@typing.overload
+def sandpile_simulate_worker(system: Sandpile16Bit, shared_value: typing.Any, time_steps: int, tqdm_update_steps: int = 1000) -> None:
     ...

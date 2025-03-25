@@ -11,39 +11,67 @@
 namespace py = pybind11;
 
 template <typename T>
+void simulate_single(Sandpile<T>& system, const uint32_t time_steps,
+                     int tqdm_update_steps, const int position)
+{
+    const py::dict kwargs{};
+    kwargs["total"] = tqdm_update_steps;
+    kwargs["position"] = position;
+    kwargs["ncols"] = 100;
+
+    const auto tqdm = py::module::import("tqdm").attr("tqdm")(**kwargs);
+
+    if (!hasattr(tqdm, "update"))
+    {
+        throw py::attribute_error("tqdm object does not have update function");
+    }
+    tqdm.attr("n") = 0;
+
+    system.initialize_system(time_steps, std::nullopt, std::nullopt);
+    const int tqdm_update_step = static_cast<int>(time_steps / tqdm_update_steps);
+
+    for (uint32_t i = 1; i <= time_steps; ++i)
+    {
+        system.step(std::nullopt);
+        if (i % static_cast<uint32_t>(tqdm_update_step) == 0)
+        {
+            auto _ = tqdm.attr("update")(1);
+            tqdm.attr("refresh")();
+        }
+    }
+
+    // tqdm.attr("update")(static_cast<int>(time_steps % tqdm_update_step > 0));
+    tqdm.attr("close")();
+
+    system.shrink_to_fit();
+}
+
+template <typename T>
 void sandpile_simulate_worker(Sandpile<T>& system, const py::object& shared_value,
-                              uint32_t time_steps, std::optional<int> tqdm_update_steps)
+                              uint32_t time_steps, int tqdm_update_steps)
 {
     system.initialize_system(time_steps, std::nullopt, std::nullopt);
-    if (!tqdm_update_steps.has_value())
-    {
-        tqdm_update_steps = TQDM_UPDATE_STEPS;
-    }
-    const int tqdm_update_amount = static_cast<int>(time_steps / tqdm_update_steps.value());
+    const int tqdm_update_step = static_cast<int>(time_steps / tqdm_update_steps);
     const int start_value = shared_value.attr("value").cast<int>();
 
     for (uint32_t i = 1; i <= time_steps; ++i)
     {
         system.step(std::nullopt);
-        if (i % static_cast<uint32_t>(tqdm_update_amount) == 0)
+        if (i % static_cast<uint32_t>(tqdm_update_step) == 0)
         {
             auto _ = shared_value.attr("get_lock")().attr("acquire")();
             // auto _ = lock.attr("acquire")();
-            shared_value.attr("value") = shared_value.attr("value").cast<int>() + tqdm_update_amount;
+            // shared_value.attr("value") = shared_value.attr("value").cast<int>() + tqdm_update_step;
+            shared_value.attr("value") = shared_value.attr("value").cast<int>() + 1;
             // _ = lock.attr("release")();
             _ = shared_value.attr("get_lock")().attr("release")();
         }
     }
 
-    // py::print("value ", shared_value.attr("value").cast<int>());
-    // py::print("rest {}", time_steps % tqdm_update_amount);
-    auto _ = shared_value.attr("get_lock")().attr("acquire")();
-    // auto _ = lock.attr("acquire")();
-    shared_value.attr("value") =
-        shared_value.attr("value").cast<int>() + static_cast<int>(time_steps % tqdm_update_amount);
-    // _ = lock.attr("release")();
-    // py::print("value ", shared_value.attr("value").cast<int>());
-    _ = shared_value.attr("get_lock")().attr("release")();
+    // auto _ = shared_value.attr("get_lock")().attr("acquire")();
+    // shared_value.attr("value") =
+    //     shared_value.attr("value").cast<int>() + static_cast<int>((time_steps % tqdm_update_step) == 0);
+    // _ = shared_value.attr("get_lock")().attr("release")();
 
     system.shrink_to_fit();
 }
@@ -144,7 +172,19 @@ void bind_simulate_worker(py::module_& m, std::string name)
           py::arg("system"),
           py::arg("shared_value"),
           py::arg("time_steps"),
-          py::arg("tqdm_update_steps") = std::nullopt
+          py::arg("tqdm_update_steps") = TQDM_UPDATE_STEPS
+    );
+}
+
+template <typename T>
+void bind_simulate_single(py::module_& m, std::string name)
+{
+    m.def(name.c_str(), &simulate_single<T>,
+          py::arg("system"),
+          // py::arg("tqdm"),
+          py::arg("time_steps"),
+          py::arg("tqdm_update_steps") = TQDM_UPDATE_STEPS,
+          py::arg("position") = 0
     );
 }
 
@@ -154,4 +194,6 @@ PYBIND11_MODULE(sandpile, m)
     bind_sandpile<int16_t>(m, "Sandpile16Bit");
     bind_simulate_worker<int8_t>(m, "sandpile_simulate_worker");
     bind_simulate_worker<int16_t>(m, "sandpile_simulate_worker");
+    bind_simulate_single<int8_t>(m, "sandpile_simulate_single");
+    bind_simulate_single<int16_t>(m, "sandpile_simulate_single");
 }
