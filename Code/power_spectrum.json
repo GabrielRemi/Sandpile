@@ -1,5 +1,5 @@
 [
-  13,
+  14,
   {
     "path": "data/1D/d1_g40_c7_cl_nco",
     "limits": [0.025, 0.1]
@@ -49,6 +49,14 @@
     "limits": [0.02, 0.1]
   },
   {
+    "path": "data/4D/d4_g25_c7_cl_nco",
+    "limits": [0.007, 0.1]
+  },
+  {
+    "path": "data/4D/d4_g25_c7_op_nco",
+    "limits": [0.003, 0.08]
+  },
+  {
     "path": "data/5D/d5_g10_c7_op_nco",
     "limits": [0.02, 0.1]
   },
@@ -57,7 +65,11 @@
     "limits": [0.02, 0.1]
   },
   {
+    "path": "data/6D/d6_g10_c7_op_nco",
+    "limits": [0.01, 0.07]
+  },
+  {
     "path": "data/6D/d6_g10_c7_cl_nco",
-    "limits": [0.02, 0.1]
+    "limits": [0.03, 0.09]
   }
 ]

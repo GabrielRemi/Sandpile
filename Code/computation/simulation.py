@@ -51,8 +51,6 @@ def simulate(system: Sandpile, time_steps: int):
     t = tqdm(total=time_steps)
 
 
-
-
 @overload
 def get_avalanche_hist_3d(*, system: Sandpile) -> tuple[list[NDArray[np.float64]], NDArray[np.float64]]:
     ...
@@ -177,6 +175,7 @@ def _process(meta: ProcessMeta, shared_tqdm_value: mp.Value):
     # df = system.get_avalanche_data()
     # bins, _ = np.histogramdd((df["size"], df["time"], df["reach"]), bins=[*edges])
     del system
+
     gc.collect()
 
 
@@ -214,6 +213,7 @@ def run_multiple_samples(
         worker_count: number of workers to use for the simulation, defaults to cpu_count() - 2
         tqdm_update_interval: interval in seconds for updating the progress bar, defaults to 0.01 seconds
         tqdm_update_steps: number of updates if the progress bar for one sample, defaults to 1000 steps
+        leave_raw: Do not delete the raw data after the simulation, defaults to False
     """
     worker_count = kwargs.get("worker_count", mp.cpu_count() - 2)
 
@@ -249,7 +249,8 @@ def run_multiple_samples(
     for i in range(sample_count):
         args = ProcessMeta(bit, system.dim, system.grid, system.crit_slope, system.get_has_open_boundary(),
                            system.get_has_conservative_perturbation(), system.time_cut_off, time_steps,
-                           total_dissipation_time, i, data_dir, desc, start_cfg, kwargs.get("tqdm_update_steps", 1000))
+                           total_dissipation_time, i, data_dir, desc, start_cfg,
+                           kwargs.get("tqdm_update_steps", 1000))
         input_queue.put(args)
     for _ in range(worker_count):
         input_queue.put(None)
@@ -275,8 +276,9 @@ def run_multiple_samples(
     for p in processes:
         p.join()
 
-    generate_3d_distribution_from_directory(data_dir)
-    generate_power_spectrum_from_directory(data_dir)
+    if not kwargs.get("leave_raw", False):
+        generate_3d_distribution_from_directory(data_dir)
+        generate_power_spectrum_from_directory(data_dir)
 
 
 def generate_3d_distribution_from_directory(dir: Path):
@@ -284,9 +286,15 @@ def generate_3d_distribution_from_directory(dir: Path):
     if dir.joinpath("avalanche_distribution.npz").exists():
         centers, bins = load_3d_dist(dir.joinpath("avalanche_distribution.npz"))
     else:
-        f = next(files)
-        centers, bins = generate_3d_distribution_from_data_samples([f.__str__()])
-        f.unlink()
+        while True:
+            try:
+                f = next(files)
+                centers, bins = generate_3d_distribution_from_data_samples([f.__str__()])
+                f.unlink()
+                break
+            except Exception as e:
+                continue
+
 
     edges = []
     for c in centers:
@@ -301,13 +309,18 @@ def generate_3d_distribution_from_directory(dir: Path):
         edges.append(np.array(e))
 
     i = 1
-    for file in files:
-        i += 1
-        data = np.load(file)
-        b, _ = np.histogramdd((data["size"], data["time"], data["reach"]), bins=[*edges], density=True)
-        bins += b / b.sum()
-        file.unlink()
-    bins /= bins.sum()
+    files = list(files)
+    for file in tqdm(files, desc="Create Avalanche Distribution"):
+        try:
+            i += 1
+            data = np.load(file)
+            b, _ = np.histogramdd((data["size"], data["time"], data["reach"]), bins=[*edges], density=True)
+            bins += b / b.sum()
+            file.unlink()
+        except Exception as e:
+            print(f"Error in file {file}: {e}")
+            file.unlink()
+    # bins /= bins.sum()
     np.savez_compressed(dir / "avalanche_distribution.npz", size=centers[0], time=centers[1], reach=centers[2],
                         bins=bins)
 
@@ -322,7 +335,6 @@ def generate_power_spectrum_from_directory(dir: Path):
     n = len(power_spectrum)
 
     if dir.joinpath("mean_power_spectrum.npy").exists():
-        print("Exists")
         mean_power_spectrum = np.load(dir.joinpath("mean_power_spectrum.npy"))
         if len(mean_power_spectrum) != n:
             raise ValueError("Mean power spectrum has the wrong length")
@@ -331,10 +343,11 @@ def generate_power_spectrum_from_directory(dir: Path):
     mean_power_spectrum += power_spectrum / power_spectrum.max()
     f.unlink()
 
-    for file in files:
+    files = list(files)
+    for file in tqdm(files, desc="Calculate Mean Power Spectrum"):
         mean_power_spectrum += np.load(file)
         file.unlink()
-    mean_power_spectrum /= mean_power_spectrum.max()
+    # mean_power_spectrum /= mean_power_spectrum.max()
     np.save(dir / "mean_power_spectrum.npy", mean_power_spectrum)
 
 
