@@ -1,75 +1,82 @@
 [
-  14,
   {
     "path": "data/1D/d1_g40_c7_cl_nco",
-    "limits": [0.025, 0.1]
+    "limits": [[0.025, 0.1],[0.025, 0.15]]
+  },
+  {
+    "path": "data/1D/d1_g40_c7_op_co",
+    "limits": [[0.02, 0.2],[0.025, 0.1]]
   },
   {
     "path": "data/2D/d2_g20_c7_cl_nco",
-    "limits": [0.02, 0.1]
+    "limits": [[0.015, 0.13],[0.02, 0.1]]
   },
   {
     "path": "data/2D/d2_g20_c7_op_co",
-    "limits": [0.02, 0.1]
+    "limits": [[0.015, 0.2],[0.02, 0.1]]
   },
   {
     "path": "data/2D/d2_g20_c7_op_nco",
-    "limits": [0.01, 0.05]
+    "limits": [[0.008, 0.09],[0.01, 0.05]]
   },
   {
     "path": "data/2D/d2_g40_c7_cl_nco",
-    "limits": [0.007, 0.07]
+    "limits": [[0.007, 0.13],[0.005, 0.07]]
   },
   {
     "path": "data/2D/d2_g40_c7_op_co",
-    "limits": [0.02, 0.1]
+    "limits": [[0.007, 0.2],[0.02, 0.1]]
   },
   {
     "path": "data/2D/d2_g40_c7_op_nco",
-    "limits": [0.005, 0.045]
+    "limits": [[0.002, 0.01],[0.005, 0.045]]
+  },
+  {
+    "path": "data/2D/d2_g100_c7_cl_nco",
+    "limits": [[0.002, 0.01],[0.005, 0.045]]
   },
   {
     "path": "data/3D/d3_g20_c7_cl_nco",
-    "limits": [0.007, 0.1]
+    "limits": [[0.006, 0.15],[0.007, 0.1]]
   },
   {
     "path": "data/3D/d3_g20_c7_op_co",
-    "limits": [0.02, 0.1]
+    "limits": [[0.03, 0.15],[0.02, 0.1]]
   },
   {
     "path": "data/3D/d3_g20_c7_op_nco",
-    "limits": [0.005, 0.045]
+    "limits": [[0.02, 0.2],[0.005, 0.045]]
   },
   {
     "path": "data/4D/d4_g15_c7_cl_nco",
-    "limits": [0.007, 0.07]
+    "limits": [[0.1, 0.15],[0.007, 0.07]]
   },
   {
     "path": "data/4D/d4_g15_c7_op_nco",
-    "limits": [0.02, 0.1]
+    "limits": [[0.1, 0.2],[0.02, 0.1]]
   },
   {
     "path": "data/4D/d4_g25_c7_cl_nco",
-    "limits": [0.007, 0.1]
+    "limits": [[0.005, 0.2],[0.007, 0.1]]
   },
   {
     "path": "data/4D/d4_g25_c7_op_nco",
-    "limits": [0.003, 0.08]
+    "limits": [[0.001, 0.2],[0.003, 0.08]]
   },
   {
     "path": "data/5D/d5_g10_c7_op_nco",
-    "limits": [0.02, 0.1]
+    "limits": [[0.08, 0.15],[0.02, 0.1]]
   },
   {
     "path": "data/5D/d5_g10_c7_cl_nco",
-    "limits": [0.02, 0.1]
+    "limits": [[0.01, 0.2],[0.02, 0.1]]
   },
   {
     "path": "data/6D/d6_g10_c7_op_nco",
-    "limits": [0.01, 0.07]
+    "limits": [[0.007, 0.1],[0.01, 0.07]]
   },
   {
     "path": "data/6D/d6_g10_c7_cl_nco",
-    "limits": [0.03, 0.09]
+    "limits": [[0.01, 0.15],[0.03, 0.09]]
   }
 ]
