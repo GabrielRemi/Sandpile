@@ -46,19 +46,33 @@ def _fit_func(x, m, b):
 
 
 def calculate_scaling_exponent(
-    x: ArrayLike, y: ArrayLike, lower_limit: int | float | None = None, upper_limit: int | float | None = None
+    x: ArrayLike, y: ArrayLike, limits: tuple[float | None, float | None]
 ) -> tuple[unc.core.Variable, unc.core.Variable]:
     x, y = np.asarray(x), np.asarray(y)
 
-    ind = (y > 0) & (x != 0) & (x < (upper_limit or np.inf)) & (x > (lower_limit or -np.inf))
-    x = np.log(x[ind])
-    y = np.log(y[ind])
+    if isinstance(limits[0], int | float | None):
+        limits = [limits]
+    m, n = [], []
+    m_err, n_err = 0, 0
+    for limit in limits:
+        upper_limit = limit[1]
+        lower_limit = limit[0]
+        ind = (y > 0) & (x != 0) & (x < (upper_limit or np.inf)) & (x > (lower_limit or -np.inf))
+        x_f = np.log(x[ind])
+        y_f = np.log(y[ind])
 
-    output = curve_fit(_fit_func, x, y)
+        output = curve_fit(_fit_func, x_f, y_f)
 
-    m, m_err = output[0][0], np.sqrt(output[1][0, 0])
-    n, n_err = output[0][1], np.sqrt(output[1][1, 1])
-    return unc.ufloat(m, m_err), unc.ufloat(n, n_err)
+        m.append(output[0][0])
+        n.append(output[0][1])
+        m_err = np.sqrt(output[1][0, 0])
+        n_err = np.sqrt(output[1][1, 1])
+    # m, m_err = output[0][0], np.sqrt(output[1][0, 0])
+    # n, n_err = output[0][1], np.sqrt(output[1][1, 1])
+    if len(m) == 1:
+        return unc.ufloat(m[0], m_err), unc.ufloat(n[0], n_err)
+    else:
+        return unc.ufloat(np.mean(m), np.std(m)), unc.ufloat(np.mean(n), np.std(n))
 
 
 def expo(x, m: unc.core.Variable, n: unc.core.Variable):
@@ -141,15 +155,15 @@ def plot_scaling_exponents(
     if limits is None:
         return
     else:
-        s_m, s_n = calculate_scaling_exponent(s, s_dist, *limits[0])
-        t_m, t_n = calculate_scaling_exponent(t, t_dist, *limits[1])
-        r_m, r_n = calculate_scaling_exponent(r, r_dist, *limits[2])
-        st_m, st_n = calculate_scaling_exponent(t[ind_t], est, *limits[3])
-        ts_m, ts_n = calculate_scaling_exponent(s[ind_s], ets, *limits[4])
-        sr_m, sr_n = calculate_scaling_exponent(r[ind_r], esr, *limits[5])
-        rs_m, rs_n = calculate_scaling_exponent(s[ind_s], ers, *limits[6])
-        tr_m, tr_n = calculate_scaling_exponent(r[ind_r], etr, *limits[7])
-        rt_m, rt_n = calculate_scaling_exponent(t[ind_t], ert, *limits[8])
+        s_m, s_n = calculate_scaling_exponent(s, s_dist, limits[0])
+        t_m, t_n = calculate_scaling_exponent(t, t_dist, limits[1])
+        r_m, r_n = calculate_scaling_exponent(r, r_dist, limits[2])
+        st_m, st_n = calculate_scaling_exponent(t[ind_t], est, limits[3])
+        ts_m, ts_n = calculate_scaling_exponent(s[ind_s], ets, limits[4])
+        sr_m, sr_n = calculate_scaling_exponent(r[ind_r], esr, limits[5])
+        rs_m, rs_n = calculate_scaling_exponent(s[ind_s], ers, limits[6])
+        tr_m, tr_n = calculate_scaling_exponent(r[ind_r], etr, limits[7])
+        rt_m, rt_n = calculate_scaling_exponent(t[ind_t], ert, limits[8])
 
         if do_plot:
             axs[0, 0].plot(s, expo(s, s_m, s_n))
