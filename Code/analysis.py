@@ -39,6 +39,8 @@ def draw_distribution(x: ArrayLike, y: ArrayLike, log_scale: bool = True, axis=N
 
     ind = (y != 0) & (x != 0)
     axis.scatter(x[ind], y[ind], **plt_kwargs)  # type: ignore
+    # del plt_kwargs["s"]
+    # axis.errorbar(x[ind], y[ind], yerr=np.sqrt(y[ind]), **plt_kwargs)  # type: ignore
 
 
 def _fit_func(x, m, b):
@@ -53,26 +55,32 @@ def calculate_scaling_exponent(
     if isinstance(limits[0], int | float | None):
         limits = [limits]
     m, n = [], []
-    m_err, n_err = 0, 0
+    m_err, n_err = [], []
     for limit in limits:
         upper_limit = limit[1]
         lower_limit = limit[0]
         ind = (y > 0) & (x != 0) & (x < (upper_limit or np.inf)) & (x > (lower_limit or -np.inf))
         x_f = np.log(x[ind])
         y_f = np.log(y[ind])
+        sigma = np.log(y[ind])
+        sigma = np.clip(sigma, 0.01, None)
 
-        output = curve_fit(_fit_func, x_f, y_f)
+        output = curve_fit(_fit_func, x_f, y_f, sigma=sigma, absolute_sigma=False)
 
         m.append(output[0][0])
         n.append(output[0][1])
-        m_err = np.sqrt(output[1][0, 0])
-        n_err = np.sqrt(output[1][1, 1])
+        m_err.append(np.sqrt(output[1][0, 0]))
+        n_err.append(np.sqrt(output[1][1, 1]))
     # m, m_err = output[0][0], np.sqrt(output[1][0, 0])
     # n, n_err = output[0][1], np.sqrt(output[1][1, 1])
     if len(m) == 1:
-        return unc.ufloat(m[0], m_err), unc.ufloat(n[0], n_err)
+        return unc.ufloat(m[0], m_err[0]), unc.ufloat(n[0], n_err[0])
     else:
-        return unc.ufloat(np.mean(m), np.std(m)), unc.ufloat(np.mean(n), np.std(n))
+        merr = 0
+        merr += np.std(m)**2
+        merr += 1 / np.sum(1 / np.asarray(m_err)**2)
+        merr = np.sqrt(merr)
+        return unc.ufloat(np.mean(m), merr), unc.ufloat(np.mean(n), np.std(n))
 
 
 def expo(x, m: unc.core.Variable, n: unc.core.Variable):
